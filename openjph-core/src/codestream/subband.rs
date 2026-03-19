@@ -207,8 +207,10 @@ impl Subband {
             // We need to left-shift magnitudes so the MSB sits at bit 30.
             let num_bits = 32 - max_mag.leading_zeros(); // bits needed for max_mag
             let shift = 30 - (num_bits as i32 - 1);
-            let shift = shift.max(0) as u32;
-            let missing_msbs = shift; // = 30 - (num_bits - 1)
+            // Cap at 29: the block coder needs p = 30 - missing_msbs >= 1
+            // (p=0 causes underflow in the decoder's (v_n+2)<<(p-1) shift).
+            let shift = shift.max(0).min(29) as u32;
+            let missing_msbs = shift;
 
             // Left-shift all magnitudes
             if shift > 0 {
@@ -260,7 +262,10 @@ impl Subband {
             }
 
             let stride = cb_w;
-            let mut decoded = vec![0u32; (cb_w * cb_h) as usize];
+            // Pad height to even: the decoder processes 2x2 quads and
+            // writes to row y+1, which overflows for odd heights.
+            let padded_h = (cb_h + 1) & !1;
+            let mut decoded = vec![0u32; (stride * padded_h) as usize];
 
             let _ok = decode_codeblock32(
                 &mut cb.coded_data,

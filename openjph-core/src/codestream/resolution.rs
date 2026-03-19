@@ -89,22 +89,35 @@ impl Resolution {
                 log_block_dims,
             )]
         } else {
-            // HL, LH, HH subbands
-            // Each subband covers roughly half the resolution in each direction
-            let _half_w = div_ceil(res_rect.siz.w, 2);
-            let _half_h = div_ceil(res_rect.siz.h, 2);
+            // HL, LH, HH subbands with correct JPEG 2000 dimensions.
+            // For resolution extent [ox, ox+w) × [oy, oy+h):
+            //   Even (low) count:  ceil((o+s)/2) - ceil(o/2)
+            //   Odd  (high) count: floor((o+s)/2) - floor(o/2) = (o+s)/2 - o/2
             let ox = res_rect.org.x;
             let oy = res_rect.org.y;
+            let w = res_rect.siz.w;
+            let h = res_rect.siz.h;
 
+            let low_w  = div_ceil(ox + w, 2) - div_ceil(ox, 2);
+            let low_h  = div_ceil(oy + h, 2) - div_ceil(oy, 2);
+            let high_w = (ox + w) / 2 - ox / 2;
+            let high_h = (oy + h) / 2 - oy / 2;
+
+            // HL: horizontal high-pass, vertical low-pass
             let hl_rect = Rect::new(
-                Point::new(div_ceil(ox, 2), div_ceil(oy, 2)),
-                Size::new(
-                    div_ceil(ox + res_rect.siz.w, 2) - div_ceil(ox, 2),
-                    div_ceil(oy + res_rect.siz.h, 2) - div_ceil(oy, 2),
-                ),
+                Point::new(ox / 2, div_ceil(oy, 2)),
+                Size::new(high_w, low_h),
             );
-            let lh_rect = hl_rect;
-            let hh_rect = hl_rect;
+            // LH: horizontal low-pass, vertical high-pass
+            let lh_rect = Rect::new(
+                Point::new(div_ceil(ox, 2), oy / 2),
+                Size::new(low_w, high_h),
+            );
+            // HH: both high-pass
+            let hh_rect = Rect::new(
+                Point::new(ox / 2, oy / 2),
+                Size::new(high_w, high_h),
+            );
 
             vec![
                 Subband::new(SubbandType::HL, res_num, hl_rect, log_block_dims),

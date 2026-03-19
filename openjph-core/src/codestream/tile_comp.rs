@@ -174,7 +174,8 @@ impl TileComp {
         let mut current: Vec<Vec<i32>> = self.lines.clone();
         for d in 0..num_decomps {
             let res_idx = (num_decomps - d) as usize; // highest resolution first
-            let (ll, hl, lh, hh) = dwt53_forward_2d(&current);
+            let res_org = self.resolutions[res_idx].res_rect.org;
+            let (ll, hl, lh, hh) = dwt53_forward_2d(&current, res_org.x, res_org.y);
 
             // Store detail subbands at this resolution level
             let res = &mut self.resolutions[res_idx];
@@ -229,6 +230,7 @@ impl TileComp {
         for d in (0..num_decomps).rev() {
             let res_idx = (num_decomps - d) as usize;
             let res = &self.resolutions[res_idx];
+            let res_org = res.res_rect.org;
             let hl = unflatten_2d(&res.subbands[0].coeffs,
                                   res.subbands[0].width() as usize,
                                   res.subbands[0].height() as usize);
@@ -245,7 +247,7 @@ impl TileComp {
             let out_h = if res_idx == num_decomps as usize { h } else {
                 self.resolutions[res_idx].res_rect.siz.h as usize
             };
-            current = dwt53_inverse_2d(&current, &hl, &lh, &hh, out_w, out_h);
+            current = dwt53_inverse_2d(&current, &hl, &lh, &hh, out_w, out_h, res_org.x, res_org.y);
         }
 
         self.decoded_lines = current;
@@ -282,34 +284,75 @@ impl TileComp {
 // Simple 5/3 reversible DWT (scalar, for correctness)
 // =========================================================================
 
-/// Forward 1D 5/3 DWT on a signal of length n.
+/// Forward 1D 5/3 DWT on a signal of length n starting at absolute position `origin`.
+/// When `origin` is odd, the first sample is at an odd global position and goes
+/// to the high subband; the second sample is even and goes to the low subband.
 /// Returns (low, high) subbands.
-fn dwt53_forward_1d(input: &[i32]) -> (Vec<i32>, Vec<i32>) {
+fn dwt53_forward_1d(input: &[i32], origin: u32) -> (Vec<i32>, Vec<i32>) {
     let n = input.len();
     if n == 0 {
         return (vec![], vec![]);
     }
+
+    let odd_origin = (origin & 1) != 0;
+
     if n == 1 {
-        return (vec![input[0]], vec![]);
+        // A single sample always goes to the low subband (even global position)
+        // unless the origin is odd, in which case it goes to the high subband.
+        if odd_origin {
+            return (vec![], vec![input[0]]);
+        } else {
+            return (vec![input[0]], vec![]);
+        }
     }
 
-    let low_len = (n + 1) / 2;
-    let high_len = n / 2;
+    // For even origin: local even → low (s), local odd → high (d)
+    // For odd origin:  local even → high (d), local odd → low (s)
+    let (low_len, high_len) = if odd_origin {
+        (n / 2, (n + 1) / 2)   // fewer lows when origin is odd
+    } else {
+        ((n + 1) / 2, n / 2)
+    };
 
-    // Split into even (s) and odd (d) samples
-    let mut s: Vec<i32> = (0..low_len).map(|i| input[2 * i]).collect();
-    let mut d: Vec<i32> = (0..high_len).map(|i| input[2 * i + 1]).collect();
+    let (mut s, mut d) = if odd_origin {
+        // local even indices (0,2,4,...) → high; local odd (1,3,5,...) → low
+        let d_vec: Vec<i32> = (0..high_len).map(|i| input[2 * i]).collect();
+        let s_vec: Vec<i32> = (0..low_len).map(|i| input[2 * i + 1]).collect();
+        (s_vec, d_vec)
+    } else {
+        let s_vec: Vec<i32> = (0..low_len).map(|i| input[2 * i]).collect();
+        let d_vec: Vec<i32> = (0..high_len).map(|i| input[2 * i + 1]).collect();
+        (s_vec, d_vec)
+    };
 
-    // Predict (high-pass): d[i] -= (s[i] + s[i+1]) >> 1
+    // Predict (high-pass): d[i] -= (s_left + s_right) >> 1
+    // For even origin: d[i] at local pos 2i+1 has even neighbors s[i] and s[i+1]
+    // For odd origin: d[i] at local pos 2i has even neighbors s[i-1] and s[i]
     for i in 0..high_len {
-        let s_right = if i + 1 < low_len { s[i + 1] } else { s[low_len - 1] };
-        d[i] -= (s[i] + s_right) >> 1;
+        let (s_left, s_right) = if odd_origin {
+            let sl = if i > 0 { s[i - 1] } else if low_len > 0 { s[0] } else { 0 };
+            let sr = if i < low_len { s[i] } else { s[low_len - 1] };
+            (sl, sr)
+        } else {
+            let sl = s[i]; // always valid: i < high_len <= low_len
+            let sr = if i + 1 < low_len { s[i + 1] } else { s[low_len - 1] };
+            (sl, sr)
+        };
+        d[i] -= (s_left + s_right) >> 1;
     }
 
     // Update (low-pass): s[i] += (d[i-1] + d[i] + 2) >> 2
     for i in 0..low_len {
-        let d_left = if i > 0 { d[i - 1] } else { d[0] };
-        let d_right = if i < high_len { d[i] } else { d[high_len - 1] };
+        let d_left = if odd_origin {
+            if i < high_len { d[i] } else { d[high_len - 1] }
+        } else {
+            if i > 0 { d[i - 1] } else { d[0] }
+        };
+        let d_right = if odd_origin {
+            if i + 1 < high_len { d[i + 1] } else { d[high_len - 1] }
+        } else {
+            if i < high_len { d[i] } else { d[high_len - 1] }
+        };
         s[i] += (d_left + d_right + 2) >> 2;
     }
 
@@ -317,44 +360,76 @@ fn dwt53_forward_1d(input: &[i32]) -> (Vec<i32>, Vec<i32>) {
 }
 
 /// Inverse 1D 5/3 DWT — reconstructs from (low, high) subbands.
-fn dwt53_inverse_1d(low: &[i32], high: &[i32]) -> Vec<i32> {
+/// `origin` is the absolute start position of the reconstructed signal.
+fn dwt53_inverse_1d(low: &[i32], high: &[i32], origin: u32) -> Vec<i32> {
     let low_len = low.len();
     let high_len = high.len();
     let n = low_len + high_len;
+    let odd_origin = (origin & 1) != 0;
 
     if n == 0 { return vec![]; }
-    if n == 1 { return low.to_vec(); }
+    if n == 1 {
+        return if odd_origin { high.to_vec() } else { low.to_vec() };
+    }
 
     let mut s = low.to_vec();
     let mut d = high.to_vec();
 
     // Undo update: s[i] -= (d[i-1] + d[i] + 2) >> 2
     for i in 0..low_len {
-        let d_left = if i > 0 { d[i - 1] } else { d[0] };
-        let d_right = if i < high_len { d[i] } else { d[high_len - 1] };
+        let d_left = if odd_origin {
+            if i < high_len { d[i] } else { d[high_len - 1] }
+        } else {
+            if i > 0 { d[i - 1] } else { d[0] }
+        };
+        let d_right = if odd_origin {
+            if i + 1 < high_len { d[i + 1] } else { d[high_len - 1] }
+        } else {
+            if i < high_len { d[i] } else { d[high_len - 1] }
+        };
         s[i] -= (d_left + d_right + 2) >> 2;
     }
 
-    // Undo predict: d[i] += (s[i] + s[i+1]) >> 1
+    // Undo predict: d[i] += (s_left + s_right) >> 1
+    // Mirror the forward predict neighbor access
     for i in 0..high_len {
-        let s_right = if i + 1 < low_len { s[i + 1] } else { s[low_len - 1] };
-        d[i] += (s[i] + s_right) >> 1;
+        let (s_left, s_right) = if odd_origin {
+            let sl = if i > 0 { s[i - 1] } else if low_len > 0 { s[0] } else { 0 };
+            let sr = if i < low_len { s[i] } else { s[low_len - 1] };
+            (sl, sr)
+        } else {
+            let sl = s[i];
+            let sr = if i + 1 < low_len { s[i + 1] } else { s[low_len - 1] };
+            (sl, sr)
+        };
+        d[i] += (s_left + s_right) >> 1;
     }
 
-    // Interleave: even positions get s, odd get d
+    // Interleave
     let mut output = vec![0i32; n];
-    for i in 0..low_len {
-        output[2 * i] = s[i];
-    }
-    for i in 0..high_len {
-        output[2 * i + 1] = d[i];
+    if odd_origin {
+        // local even → high (d), local odd → low (s)
+        for i in 0..high_len {
+            output[2 * i] = d[i];
+        }
+        for i in 0..low_len {
+            output[2 * i + 1] = s[i];
+        }
+    } else {
+        for i in 0..low_len {
+            output[2 * i] = s[i];
+        }
+        for i in 0..high_len {
+            output[2 * i + 1] = d[i];
+        }
     }
     output
 }
 
 /// Forward 2D 5/3 DWT (one decomposition level).
+/// `org_x` / `org_y` are the absolute origin of the signal (for parity).
 /// Returns (ll, hl, lh, hh) as 2D arrays.
-fn dwt53_forward_2d(data: &[Vec<i32>]) -> (Vec<Vec<i32>>, Vec<Vec<i32>>, Vec<Vec<i32>>, Vec<Vec<i32>>) {
+fn dwt53_forward_2d(data: &[Vec<i32>], org_x: u32, org_y: u32) -> (Vec<Vec<i32>>, Vec<Vec<i32>>, Vec<Vec<i32>>, Vec<Vec<i32>>) {
     let height = data.len();
     let width = if height > 0 { data[0].len() } else { 0 };
 
@@ -362,16 +437,18 @@ fn dwt53_forward_2d(data: &[Vec<i32>]) -> (Vec<Vec<i32>>, Vec<Vec<i32>>, Vec<Vec
         return (vec![], vec![], vec![], vec![]);
     }
 
-    let low_w = (width + 1) / 2;
-    let high_w = width / 2;
-    let low_h = (height + 1) / 2;
-    let high_h = height / 2;
+    let odd_x = (org_x & 1) != 0;
+    let odd_y = (org_y & 1) != 0;
+    let low_w = if odd_x { width / 2 } else { (width + 1) / 2 };
+    let high_w = if odd_x { (width + 1) / 2 } else { width / 2 };
+    let low_h = if odd_y { height / 2 } else { (height + 1) / 2 };
+    let high_h = if odd_y { (height + 1) / 2 } else { height / 2 };
 
     // Step 1: Horizontal DWT on each row
     let mut h_low = Vec::with_capacity(height);
     let mut h_high = Vec::with_capacity(height);
     for row in data {
-        let (l, h) = dwt53_forward_1d(row);
+        let (l, h) = dwt53_forward_1d(row, org_x);
         h_low.push(l);
         h_high.push(h);
     }
@@ -383,7 +460,7 @@ fn dwt53_forward_2d(data: &[Vec<i32>]) -> (Vec<Vec<i32>>, Vec<Vec<i32>>, Vec<Vec
         let col: Vec<i32> = h_low.iter().map(|row| {
             if x < row.len() { row[x] } else { 0 }
         }).collect();
-        let (s, d) = dwt53_forward_1d(&col);
+        let (s, d) = dwt53_forward_1d(&col, org_y);
         for y in 0..low_h.min(s.len()) { ll[y][x] = s[y]; }
         for y in 0..high_h.min(d.len()) { lh[y][x] = d[y]; }
     }
@@ -395,7 +472,7 @@ fn dwt53_forward_2d(data: &[Vec<i32>]) -> (Vec<Vec<i32>>, Vec<Vec<i32>>, Vec<Vec
         let col: Vec<i32> = h_high.iter().map(|row| {
             if x < row.len() { row[x] } else { 0 }
         }).collect();
-        let (s, d) = dwt53_forward_1d(&col);
+        let (s, d) = dwt53_forward_1d(&col, org_y);
         for y in 0..low_h.min(s.len()) { hl[y][x] = s[y]; }
         for y in 0..high_h.min(d.len()) { hh[y][x] = d[y]; }
     }
@@ -404,16 +481,18 @@ fn dwt53_forward_2d(data: &[Vec<i32>]) -> (Vec<Vec<i32>>, Vec<Vec<i32>>, Vec<Vec
 }
 
 /// Inverse 2D 5/3 DWT — reconstructs image from subbands.
+/// `org_x` / `org_y` are the absolute origin of the output signal.
 fn dwt53_inverse_2d(
     ll: &[Vec<i32>], hl: &[Vec<i32>], lh: &[Vec<i32>], hh: &[Vec<i32>],
-    width: usize, height: usize,
+    width: usize, height: usize, org_x: u32, org_y: u32,
 ) -> Vec<Vec<i32>> {
     if width == 0 || height == 0 {
         return vec![];
     }
 
-    let low_w = (width + 1) / 2;
-    let high_w = width / 2;
+    let odd_x = (org_x & 1) != 0;
+    let low_w = if odd_x { width / 2 } else { (width + 1) / 2 };
+    let high_w = if odd_x { (width + 1) / 2 } else { width / 2 };
 
     // Step 1: Inverse vertical DWT on (LL, LH) → h_low columns
     let mut h_low = vec![vec![0i32; low_w]; height];
@@ -424,7 +503,7 @@ fn dwt53_inverse_2d(
         let high_col: Vec<i32> = lh.iter().map(|row| {
             if x < row.len() { row[x] } else { 0 }
         }).collect();
-        let col = dwt53_inverse_1d(&low_col, &high_col);
+        let col = dwt53_inverse_1d(&low_col, &high_col, org_y);
         for y in 0..height.min(col.len()) {
             h_low[y][x] = col[y];
         }
@@ -439,7 +518,7 @@ fn dwt53_inverse_2d(
         let high_col: Vec<i32> = hh.iter().map(|row| {
             if x < row.len() { row[x] } else { 0 }
         }).collect();
-        let col = dwt53_inverse_1d(&low_col, &high_col);
+        let col = dwt53_inverse_1d(&low_col, &high_col, org_y);
         for y in 0..height.min(col.len()) {
             h_high[y][x] = col[y];
         }
@@ -448,7 +527,7 @@ fn dwt53_inverse_2d(
     // Step 3: Inverse horizontal DWT → output rows
     let mut output = Vec::with_capacity(height);
     for y in 0..height {
-        let row = dwt53_inverse_1d(&h_low[y], &h_high[y]);
+        let row = dwt53_inverse_1d(&h_low[y], &h_high[y], org_x);
         let mut trimmed = vec![0i32; width];
         let n = width.min(row.len());
         trimmed[..n].copy_from_slice(&row[..n]);

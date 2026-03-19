@@ -325,34 +325,43 @@ impl CodestreamLocal {
             });
         }
 
-        // Determine current tile for this line
-        let tile_idx = self.cur_tile_row * self.num_tiles.w;
-        if tile_idx as usize >= self.tiles.len() {
-            return Ok(None);
+        let num_tw = self.num_tiles.w;
+
+        // Find the tile row that still needs lines for this component
+        let mut tile_row = 0u32;
+        loop {
+            let idx = tile_row * num_tw;
+            if idx as usize >= self.tiles.len() {
+                return Ok(None); // all tile rows done
+            }
+            let lines_so_far = self.tiles[idx as usize].tile_comps
+                .get(comp_num as usize)
+                .map(|t| t.lines.len() as u32).unwrap_or(0);
+            let comp_h = self.tiles[idx as usize].tile_comps
+                .get(comp_num as usize)
+                .map(|t| t.height()).unwrap_or(0);
+            if lines_so_far < comp_h {
+                break;
+            }
+            tile_row += 1;
         }
 
-        // Push to all tiles in the current row that this component belongs to
-        for tx in 0..self.num_tiles.w {
-            let idx = (self.cur_tile_row * self.num_tiles.w + tx) as usize;
+        // Push to all tiles in the current row
+        for tx in 0..num_tw {
+            let idx = (tile_row * num_tw + tx) as usize;
             if idx < self.tiles.len() {
-                let tile = &mut self.tiles[idx];
-                let tc = tile.tile_comps.get(comp_num as usize);
+                let tc = self.tiles[idx].tile_comps.get(comp_num as usize);
                 let tc_w = tc.map(|t| t.width()).unwrap_or(0);
                 let tc_h = tc.map(|t| t.height()).unwrap_or(0);
+                let tc_x0 = tc.map(|t| t.comp_rect.org.x).unwrap_or(0) as usize;
 
-                // Only push if we haven't filled this component yet
-                let lines_so_far = tile.tile_comps.get(comp_num as usize)
+                let lines_so_far = self.tiles[idx].tile_comps.get(comp_num as usize)
                     .map(|t| t.lines.len() as u32).unwrap_or(0);
                 if lines_so_far < tc_h {
-                    // For multi-tile-column, slice the line for this tile's extent
-                    let tile_x0 = if tx == 0 { 0 } else {
-                        tile.tile_comps.get(comp_num as usize)
-                            .map(|t| t.comp_rect.org.x).unwrap_or(0) as usize
-                    };
-                    let tile_end = tile_x0 + tc_w as usize;
+                    let tile_end = tc_x0 + tc_w as usize;
                     let clipped_end = tile_end.min(line.len());
-                    let tile_line = if tile_x0 < clipped_end {
-                        &line[tile_x0..clipped_end]
+                    let tile_line = if tc_x0 < clipped_end {
+                        &line[tc_x0..clipped_end]
                     } else {
                         &[]
                     };
@@ -361,24 +370,12 @@ impl CodestreamLocal {
             }
         }
 
-        self.cur_line += 1;
-
-        // Check if we need to advance to the next tile row
-        let tile = &self.tiles[(self.cur_tile_row * self.num_tiles.w) as usize];
-        let comp_h = tile.tile_comps.get(comp_num as usize)
-            .map(|t| t.height()).unwrap_or(0);
-        if self.cur_line >= comp_h {
-            // All lines for current tile row pushed for this component
-            // For single component or if all components done, advance tile row
-            self.cur_line = 0;
-        }
-
         // Check if all lines across all tiles have been pushed
         let total_lines = self.siz.get_height(comp_num);
         let pushed_total: u32 = self.tiles.iter()
             .filter(|t| t.tile_comps.get(comp_num as usize).is_some())
             .map(|t| t.tile_comps[comp_num as usize].lines.len() as u32)
-            .sum::<u32>() / self.num_tiles.w;
+            .sum::<u32>() / num_tw;
 
         if pushed_total >= total_lines {
             Ok(None)
@@ -435,23 +432,64 @@ impl CodestreamLocal {
 
         self.cur_line = 0;
         self.cur_comp = 0;
+        self.cur_tile_row = 0;
         Ok(())
     }
 
     /// Pull a decoded line for the given component.
     /// Returns `None` when all lines have been pulled.
+    /// For multi-tile images, composites tiles in each row into full-width lines.
     pub fn pull(&mut self, comp_num: u32) -> Option<Vec<i32>> {
+        if self.tiles.is_empty() {
+            return None;
+        }
+
         // For a single tile, just pull from it
-        if self.tiles.len() == 1 {
+        if self.num_tiles.area() == 1 {
             return self.tiles[0].pull_line(comp_num);
         }
 
-        // For multiple tile rows, find the right tile
-        // (simplified: assume tiles are laid out in rows)
-        for tile in &mut self.tiles {
-            if let Some(line) = tile.pull_line(comp_num) {
-                return Some(line);
+        // Multi-tile: find the tile row that still has data for this component
+        let num_tw = self.num_tiles.w as usize;
+        let num_th = self.num_tiles.h as usize;
+        let total_w = self.comp_size.get(comp_num as usize)
+            .map(|s| s.w as usize)
+            .unwrap_or(0);
+
+        for tile_row in 0..num_th {
+            let row_start = tile_row * num_tw;
+
+            // Pull from all tiles in this row
+            let mut tile_lines: Vec<Option<Vec<i32>>> = Vec::with_capacity(num_tw);
+            for tx in 0..num_tw {
+                let idx = row_start + tx;
+                if idx < self.tiles.len() {
+                    tile_lines.push(self.tiles[idx].pull_line(comp_num));
+                } else {
+                    tile_lines.push(None);
+                }
             }
+
+            // Check if the first tile had data
+            if tile_lines[0].is_none() {
+                continue;
+            }
+
+            // Composite all tile lines into one full-width line
+            let mut result = vec![0i32; total_w];
+            for tx in 0..num_tw {
+                let idx = row_start + tx;
+                if let Some(ref tile_line) = tile_lines[tx] {
+                    if idx < self.tiles.len() {
+                        let tx0 = self.tiles[idx].tile_comps[comp_num as usize]
+                            .comp_rect.org.x as usize;
+                        let tn = tile_line.len().min(total_w.saturating_sub(tx0));
+                        result[tx0..tx0 + tn].copy_from_slice(&tile_line[..tn]);
+                    }
+                }
+            }
+
+            return Some(result);
         }
         None
     }
