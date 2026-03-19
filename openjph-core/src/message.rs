@@ -101,7 +101,7 @@ macro_rules! ojph_warn {
     };
 }
 
-/// Emit an error message and return an [`OjphError::Codec`].
+/// Emit an error message and return an `OjphError::Codec`.
 #[macro_export]
 macro_rules! ojph_error {
     ($code:expr, $($arg:tt)*) => {{

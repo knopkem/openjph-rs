@@ -1,6 +1,98 @@
-//! OpenJPH-RS: Pure Rust HTJ2K (JPEG 2000 Part 15) codec
+//! **OpenJPH-RS** — Pure Rust HTJ2K (JPEG 2000 Part 15) codec.
 //!
-//! A 1:1 port of the OpenJPH C++ library (v0.26.3).
+//! This crate is a faithful port of the [OpenJPH](https://github.com/aous72/OpenJPH)
+//! C++ library (v0.26.3) providing encoding and decoding of HTJ2K codestreams as
+//! defined in ISO/IEC 15444-15.
+//!
+//! # Overview
+//!
+//! The main entry point is [`codestream::Codestream`], which provides both the
+//! encoder (write) and decoder (read) pipeline. Image parameters are configured
+//! through marker segment types in the [`params`] module.
+//!
+//! # Quick Start — Encoding
+//!
+//! ```rust
+//! use openjph_core::codestream::Codestream;
+//! use openjph_core::file::MemOutfile;
+//! use openjph_core::types::{Point, Size};
+//!
+//! let (width, height) = (8u32, 8u32);
+//! let pixels: Vec<i32> = vec![128; (width * height) as usize];
+//!
+//! let mut cs = Codestream::new();
+//! cs.access_siz_mut().set_image_extent(Point::new(width, height));
+//! cs.access_siz_mut().set_num_components(1);
+//! cs.access_siz_mut().set_comp_info(0, Point::new(1, 1), 8, false);
+//! cs.access_siz_mut().set_tile_size(Size::new(width, height));
+//! cs.access_cod_mut().set_num_decomposition(0);
+//! cs.access_cod_mut().set_reversible(true);
+//! cs.access_cod_mut().set_color_transform(false);
+//! cs.set_planar(0);
+//!
+//! let mut outfile = MemOutfile::new();
+//! cs.write_headers(&mut outfile, &[]).unwrap();
+//! for y in 0..height as usize {
+//!     let start = y * width as usize;
+//!     cs.exchange(&pixels[start..start + width as usize], 0).unwrap();
+//! }
+//! cs.flush(&mut outfile).unwrap();
+//!
+//! let encoded = outfile.get_data();
+//! assert!(encoded.len() > 20);
+//! ```
+//!
+//! # Quick Start — Decoding
+//!
+//! ```rust
+//! # use openjph_core::codestream::Codestream;
+//! # use openjph_core::file::{MemOutfile, MemInfile};
+//! # use openjph_core::types::{Point, Size};
+//! # let (width, height) = (8u32, 8u32);
+//! # let pixels: Vec<i32> = vec![128; (width * height) as usize];
+//! # let mut cs = Codestream::new();
+//! # cs.access_siz_mut().set_image_extent(Point::new(width, height));
+//! # cs.access_siz_mut().set_num_components(1);
+//! # cs.access_siz_mut().set_comp_info(0, Point::new(1, 1), 8, false);
+//! # cs.access_siz_mut().set_tile_size(Size::new(width, height));
+//! # cs.access_cod_mut().set_num_decomposition(0);
+//! # cs.access_cod_mut().set_reversible(true);
+//! # cs.access_cod_mut().set_color_transform(false);
+//! # cs.set_planar(0);
+//! # let mut outfile = MemOutfile::new();
+//! # cs.write_headers(&mut outfile, &[]).unwrap();
+//! # for y in 0..height as usize {
+//! #     let start = y * width as usize;
+//! #     cs.exchange(&pixels[start..start + width as usize], 0).unwrap();
+//! # }
+//! # cs.flush(&mut outfile).unwrap();
+//! # let encoded = outfile.get_data().to_vec();
+//! let mut infile = MemInfile::new(&encoded);
+//! let mut decoder = Codestream::new();
+//! decoder.read_headers(&mut infile).unwrap();
+//! decoder.create(&mut infile).unwrap();
+//!
+//! for _y in 0..height {
+//!     let line = decoder.pull(0).expect("expected decoded line");
+//!     assert_eq!(line.len(), width as usize);
+//! }
+//! ```
+//!
+//! # Modules
+//!
+//! | Module | Description |
+//! |--------|-------------|
+//! | [`types`] | Numeric aliases, geometric primitives (`Size`, `Point`, `Rect`) |
+//! | [`error`] | Error types ([`OjphError`]) and [`Result`] alias |
+//! | [`message`] | Diagnostic message dispatch (info/warn/error) |
+//! | [`arch`] | CPU feature detection and alignment constants |
+//! | [`mem`] | Aligned allocators and line buffers |
+//! | [`file`](mod@file) | I/O traits and file/memory stream implementations |
+//! | [`params`] | JPEG 2000 marker segment types (SIZ, COD, QCD, NLT, …) |
+//! | [`codestream`] | Main codec interface ([`Codestream`](codestream::Codestream)) |
+//! | [`arg`] | Minimal CLI argument interpreter |
+//! | [`coding`] | HTJ2K block entropy coding (internal) |
+//! | [`transform`] | Wavelet and color transforms (internal) |
 
 pub mod types;
 pub mod error;

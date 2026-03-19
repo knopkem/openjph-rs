@@ -48,17 +48,27 @@ pub(crate) mod markers {
 // Progression Orders
 // =========================================================================
 
+/// JPEG 2000 progression order for packet sequencing.
+///
+/// Determines the order in which packets are written into the codestream:
+/// Layer (L), Resolution (R), Component (C), and Position/Precinct (P).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
 pub enum ProgressionOrder {
+    /// Layer–Resolution–Component–Position.
     LRCP = 0,
+    /// Resolution–Layer–Component–Position.
     RLCP = 1,
+    /// Resolution–Position–Component–Layer.
     RPCL = 2,
+    /// Position–Component–Resolution–Layer.
     PCRL = 3,
+    /// Component–Position–Resolution–Layer.
     CPRL = 4,
 }
 
 impl ProgressionOrder {
+    /// Converts an integer to a progression order, if valid.
     pub fn from_i32(v: i32) -> Option<Self> {
         match v {
             0 => Some(Self::LRCP),
@@ -70,6 +80,7 @@ impl ProgressionOrder {
         }
     }
 
+    /// Returns the four-character string representation (e.g. `"LRCP"`).
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::LRCP => "LRCP",
@@ -80,6 +91,7 @@ impl ProgressionOrder {
         }
     }
 
+    /// Parses a progression order from a case-insensitive string.
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_uppercase().as_str() {
             "LRCP" => Some(Self::LRCP),
@@ -96,22 +108,36 @@ impl ProgressionOrder {
 // Profile Numbers
 // =========================================================================
 
+/// JPEG 2000 codestream profile identifiers.
+///
+/// Profiles constrain certain codestream parameters to meet specific
+/// application requirements (e.g. cinema, broadcast).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
 #[allow(dead_code)]
 pub enum ProfileNum {
+    /// No profile specified.
     Undefined = 0,
+    /// Profile 0.
     Profile0 = 1,
+    /// Profile 1.
     Profile1 = 2,
+    /// Digital Cinema 2K.
     Cinema2K = 3,
+    /// Digital Cinema 4K.
     Cinema4K = 4,
+    /// Scalable Digital Cinema 2K.
     CinemaS2K = 5,
+    /// Scalable Digital Cinema 4K.
     CinemaS4K = 6,
+    /// Broadcast profile.
     Broadcast = 7,
+    /// Interoperable Master Format (IMF).
     Imf = 8,
 }
 
 impl ProfileNum {
+    /// Parses a profile name from a case-insensitive string.
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_uppercase().as_str() {
             "PROFILE0" => Some(Self::Profile0),
@@ -216,6 +242,28 @@ pub(crate) const RSIZ_NLT_FLAG: u16 = 0x200;
 pub(crate) const RSIZ_HT_FLAG: u16 = 0x4000;
 pub(crate) const RSIZ_EXT_FLAG: u16 = 0x8000;
 
+/// SIZ marker segment — image and tile size parameters.
+///
+/// Contains the fundamental geometry of the image: reference grid size,
+/// tile partitioning, image and tile offsets, and per-component
+/// subsampling and bit-depth information.
+///
+/// # Examples
+///
+/// ```rust
+/// use openjph_core::codestream::Codestream;
+/// use openjph_core::types::{Point, Size};
+///
+/// let mut cs = Codestream::new();
+/// let siz = cs.access_siz_mut();
+/// siz.set_image_extent(Point::new(1920, 1080));
+/// siz.set_tile_size(Size::new(1920, 1080));
+/// siz.set_num_components(3);
+/// for c in 0..3 {
+///     siz.set_comp_info(c, Point::new(1, 1), 8, false);
+/// }
+/// assert_eq!(siz.get_num_components(), 3);
+/// ```
 #[derive(Debug)]
 pub struct ParamSiz {
     pub(crate) lsiz: u16,
@@ -250,51 +298,68 @@ impl Default for ParamSiz {
 }
 
 impl ParamSiz {
+    /// Sets the image reference grid extent (Xsiz, Ysiz).
     pub fn set_image_extent(&mut self, extent: Point) {
         self.xsiz = extent.x;
         self.ysiz = extent.y;
     }
 
+    /// Returns the image reference grid extent.
     pub fn get_image_extent(&self) -> Point {
         Point::new(self.xsiz, self.ysiz)
     }
 
+    /// Sets the tile size (XTsiz, YTsiz).
     pub fn set_tile_size(&mut self, s: Size) {
         self.xt_siz = s.w;
         self.yt_siz = s.h;
     }
 
+    /// Returns the tile size.
     pub fn get_tile_size(&self) -> Size {
         Size::new(self.xt_siz, self.yt_siz)
     }
 
+    /// Sets the image origin offset (XOsiz, YOsiz).
     pub fn set_image_offset(&mut self, offset: Point) {
         self.xo_siz = offset.x;
         self.yo_siz = offset.y;
     }
 
+    /// Returns the image origin offset.
     pub fn get_image_offset(&self) -> Point {
         Point::new(self.xo_siz, self.yo_siz)
     }
 
+    /// Sets the tile grid origin offset (XTOsiz, YTOsiz).
     pub fn set_tile_offset(&mut self, offset: Point) {
         self.xto_siz = offset.x;
         self.yto_siz = offset.y;
     }
 
+    /// Returns the tile grid origin offset.
     pub fn get_tile_offset(&self) -> Point {
         Point::new(self.xto_siz, self.yto_siz)
     }
 
+    /// Sets the number of image components (Csiz) and allocates storage.
     pub fn set_num_components(&mut self, num_comps: u32) {
         self.csiz = num_comps as u16;
         self.components.resize(num_comps as usize, SizCompInfo::default());
     }
 
+    /// Returns the number of image components.
     pub fn get_num_components(&self) -> u16 {
         self.csiz
     }
 
+    /// Sets per-component information: subsampling factors, bit depth, and
+    /// signedness.
+    ///
+    /// # Panics
+    ///
+    /// Debug-panics if `comp_num >= num_components` or if either
+    /// downsampling factor is zero.
     pub fn set_comp_info(&mut self, comp_num: u32, downsampling: Point,
                          bit_depth: u32, is_signed: bool) {
         debug_assert!(comp_num < self.csiz as u32);
@@ -305,42 +370,53 @@ impl ParamSiz {
         c.yr_siz = downsampling.y as u8;
     }
 
+    /// Returns the bit depth (1–38) for the specified component.
     pub fn get_bit_depth(&self, comp_num: u32) -> u32 {
         debug_assert!(comp_num < self.csiz as u32);
         ((self.components[comp_num as usize].ssiz & 0x7F) + 1) as u32
     }
 
+    /// Returns `true` if the specified component uses signed samples.
     pub fn is_signed(&self, comp_num: u32) -> bool {
         debug_assert!(comp_num < self.csiz as u32);
         (self.components[comp_num as usize].ssiz & 0x80) != 0
     }
 
+    /// Returns the subsampling factors (XRsiz, YRsiz) for the specified component.
     pub fn get_downsampling(&self, comp_num: u32) -> Point {
         debug_assert!(comp_num < self.csiz as u32);
         let c = &self.components[comp_num as usize];
         Point::new(c.xr_siz as u32, c.yr_siz as u32)
     }
 
+    /// Returns the width (in samples) of the specified component on the
+    /// reference grid.
     pub fn get_width(&self, comp_num: u32) -> u32 {
         let ds = self.components[comp_num as usize].xr_siz as u32;
         div_ceil(self.xsiz, ds) - div_ceil(self.xo_siz, ds)
     }
 
+    /// Returns the height (in samples) of the specified component on the
+    /// reference grid.
     pub fn get_height(&self, comp_num: u32) -> u32 {
         let ds = self.components[comp_num as usize].yr_siz as u32;
         div_ceil(self.ysiz, ds) - div_ceil(self.yo_siz, ds)
     }
 
+    /// Returns the reconstructed width accounting for skipped resolutions.
     pub fn get_recon_width(&self, comp_num: u32) -> u32 {
         let factor = self.get_recon_downsampling(comp_num);
         div_ceil(self.xsiz, factor.x) - div_ceil(self.xo_siz, factor.x)
     }
 
+    /// Returns the reconstructed height accounting for skipped resolutions.
     pub fn get_recon_height(&self, comp_num: u32) -> u32 {
         let factor = self.get_recon_downsampling(comp_num);
         div_ceil(self.ysiz, factor.y) - div_ceil(self.yo_siz, factor.y)
     }
 
+    /// Returns the effective downsampling factor for reconstruction,
+    /// combining component subsampling with skipped resolutions.
     pub fn get_recon_downsampling(&self, comp_num: u32) -> Point {
         let sr = self.skipped_resolutions;
         let mut factor = Point::new(1u32 << sr, 1u32 << sr);
@@ -349,19 +425,28 @@ impl ParamSiz {
         factor
     }
 
+    /// Sets a flag bit in the Rsiz field.
     pub fn set_rsiz_flag(&mut self, flag: u16) {
         self.rsiz |= flag;
     }
 
+    /// Clears a flag bit in the Rsiz field.
     #[allow(dead_code)]
     pub fn reset_rsiz_flag(&mut self, flag: u16) {
         self.rsiz &= !flag;
     }
 
+    /// Sets the number of resolution levels to skip during decoding.
     pub fn set_skipped_resolutions(&mut self, sr: u32) {
         self.skipped_resolutions = sr;
     }
 
+    /// Validates the SIZ parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`OjphError::Codec`] if the image extent, tile size, or
+    /// offsets are invalid (zero extent, bad offsets, etc.).
     pub fn check_validity(&self) -> Result<()> {
         if self.xsiz == 0 || self.ysiz == 0 || self.xt_siz == 0 || self.yt_siz == 0 {
             return Err(OjphError::Codec {
@@ -594,6 +679,11 @@ pub(crate) const COD_DEFAULT_COMP: u16 = 65535;
 #[allow(dead_code)]
 pub(crate) const COD_UNKNOWN_COMP: u16 = 65534;
 
+/// COD/COC marker segment — coding style parameters.
+///
+/// Holds default coding parameters (COD) and optionally per-component
+/// overrides (COC). Controls the wavelet transform, block coder settings,
+/// precinct sizes, and progression order.
 #[derive(Debug, Clone)]
 pub struct ParamCod {
     pub(crate) cod_type: CodType,
@@ -621,6 +711,8 @@ impl Default for ParamCod {
 }
 
 impl ParamCod {
+    /// Creates a new COC (coding style component) instance for the given
+    /// component index.
     pub fn new_coc(comp_idx: u16) -> Self {
         Self {
             cod_type: CodType::CocMain,
@@ -633,23 +725,33 @@ impl ParamCod {
         }
     }
 
+    /// Sets whether the wavelet transform is reversible (lossless 5/3) or
+    /// irreversible (lossy 9/7).
     pub fn set_reversible(&mut self, reversible: bool) {
         self.sp_cod.wavelet_trans = if reversible { DWT_REV53 } else { DWT_IRV97 };
     }
 
+    /// Enables or disables the multi-component (color) transform.
+    ///
+    /// When enabled with a reversible transform, RCT is used; with
+    /// irreversible, ICT is used. Requires ≥ 3 components.
     pub fn set_color_transform(&mut self, ct: bool) {
         self.sg_cod.mc_trans = if ct { 1 } else { 0 };
     }
 
+    /// Sets the number of DWT decomposition levels (0–32).
     pub fn set_num_decomposition(&mut self, num: u32) {
         self.sp_cod.num_decomp = num as u8;
     }
 
+    /// Sets the code block dimensions. Both `width` and `height` must be
+    /// powers of two in the range 4–1024 and their product ≤ 4096.
     pub fn set_block_dims(&mut self, width: u32, height: u32) {
         self.sp_cod.block_width = (width as f64).log2() as u8 - 2;
         self.sp_cod.block_height = (height as f64).log2() as u8 - 2;
     }
 
+    /// Sets custom precinct sizes per resolution level.
     pub fn set_precinct_size(&mut self, num_levels: i32, sizes: &[Size]) {
         if num_levels > 0 && !sizes.is_empty() {
             self.scod |= 1;
@@ -662,6 +764,12 @@ impl ParamCod {
         }
     }
 
+    /// Sets the progression order by name (e.g. `"LRCP"`, `"RPCL"`).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`OjphError::InvalidParam`] if `name` is not a recognised
+    /// progression order string.
     pub fn set_progression_order(&mut self, name: &str) -> Result<()> {
         match ProgressionOrder::from_str(name) {
             Some(po) => {
@@ -674,6 +782,7 @@ impl ParamCod {
         }
     }
 
+    /// Returns the number of DWT decomposition levels.
     pub fn get_num_decompositions(&self) -> u8 {
         if self.cod_type == CodType::CocMain && self.is_dfs_defined() {
             self.sp_cod.num_decomp & 0x7F
@@ -682,31 +791,38 @@ impl ParamCod {
         }
     }
 
+    /// Returns the code block dimensions.
     pub fn get_block_dims(&self) -> Size {
         self.sp_cod.get_block_dims()
     }
 
+    /// Returns the log₂ code block dimensions.
     pub fn get_log_block_dims(&self) -> Size {
         self.sp_cod.get_log_block_dims()
     }
 
+    /// Returns the wavelet kernel type (0 = irreversible 9/7, 1 = reversible 5/3).
     pub fn get_wavelet_kern(&self) -> u8 {
         self.sp_cod.wavelet_trans
     }
 
+    /// Returns `true` if using the reversible (lossless) 5/3 wavelet.
     pub fn is_reversible(&self) -> bool {
         self.sp_cod.wavelet_trans == DWT_REV53
     }
 
+    /// Returns `true` if the multi-component color transform is enabled.
     pub fn is_employing_color_transform(&self) -> bool {
         self.sg_cod.mc_trans == 1
     }
 
+    /// Returns the precinct size at the given resolution level.
     pub fn get_precinct_size(&self, res_num: u32) -> Size {
         let t = self.get_log_precinct_size(res_num);
         Size::new(1 << t.w, 1 << t.h)
     }
 
+    /// Returns the log₂ precinct size at the given resolution level.
     pub fn get_log_precinct_size(&self, res_num: u32) -> Size {
         if self.scod & 1 != 0 {
             self.sp_cod.get_log_precinct_size(res_num)
@@ -715,6 +831,7 @@ impl ParamCod {
         }
     }
 
+    /// Returns `true` if SOP markers may be used in packets.
     pub fn packets_may_use_sop(&self) -> bool {
         if self.cod_type == CodType::CodMain {
             (self.scod & 2) == 2
@@ -723,6 +840,7 @@ impl ParamCod {
         }
     }
 
+    /// Returns `true` if EPH markers are used in packets.
     pub fn packets_use_eph(&self) -> bool {
         if self.cod_type == CodType::CodMain {
             (self.scod & 4) == 4
@@ -731,38 +849,46 @@ impl ParamCod {
         }
     }
 
+    /// Returns `true` if vertical causal context is enabled.
     pub fn get_block_vertical_causality(&self) -> bool {
         (self.sp_cod.block_style & VERT_CAUSAL_MODE) != 0
     }
 
+    /// Returns the progression order as an integer.
     pub fn get_progression_order(&self) -> i32 {
         self.sg_cod.prog_order as i32
     }
 
+    /// Returns the progression order as a four-character string.
     pub fn get_progression_order_as_string(&self) -> &'static str {
         ProgressionOrder::from_i32(self.sg_cod.prog_order as i32)
             .unwrap_or(ProgressionOrder::LRCP)
             .as_str()
     }
 
+    /// Returns the number of quality layers.
     pub fn get_num_layers(&self) -> i32 {
         self.sg_cod.num_layers as i32
     }
 
+    /// Returns `true` if a DFS marker is referenced.
     pub fn is_dfs_defined(&self) -> bool {
         (self.sp_cod.num_decomp & 0x80) != 0
     }
 
+    /// Returns the DFS marker index.
     #[allow(dead_code)]
     pub fn get_dfs_index(&self) -> u16 {
         (self.sp_cod.num_decomp & 0xF) as u16
     }
 
+    /// Returns the component index this COC applies to.
     pub fn get_comp_idx(&self) -> u16 {
         self.comp_idx
     }
 
-    /// Get COC for a specific component, or fall back to self (the COD default)
+    /// Returns the COC for a specific component, falling back to the COD
+    /// defaults if no per-component override exists.
     pub fn get_coc(&self, comp_idx: u32) -> &ParamCod {
         for child in &self.children {
             if child.comp_idx == comp_idx as u16 {
@@ -772,6 +898,7 @@ impl ParamCod {
         self
     }
 
+    /// Returns a mutable reference to the COC for a specific component.
     pub fn get_coc_mut(&mut self, comp_idx: u32) -> &mut ParamCod {
         for i in 0..self.children.len() {
             if self.children[i].comp_idx == comp_idx as u16 {
@@ -781,6 +908,7 @@ impl ParamCod {
         self
     }
 
+    /// Adds a new COC override for the specified component.
     pub fn add_coc(&mut self, comp_idx: u32) -> &mut ParamCod {
         let coc = ParamCod::new_coc(comp_idx as u16);
         self.children.push(coc);
@@ -1037,6 +1165,12 @@ impl Default for SpqcdData {
     }
 }
 
+/// QCD/QCC marker segment — quantization parameters.
+///
+/// Defines the quantization step sizes for all subbands (QCD = default,
+/// QCC = per-component override). For reversible transforms, the step
+/// sizes encode exponent information; for irreversible transforms,
+/// mantissa+exponent pairs are stored.
 #[derive(Debug, Clone)]
 pub struct ParamQcd {
     pub(crate) qcd_type: QcdType,
@@ -1124,6 +1258,7 @@ mod sqrt_energy_gains {
 }
 
 impl ParamQcd {
+    /// Creates a new QCC (per-component quantization) instance.
     pub fn new_qcc(comp_idx: u16) -> Self {
         Self {
             qcd_type: QcdType::QccMain,
@@ -1132,15 +1267,21 @@ impl ParamQcd {
         }
     }
 
+    /// Sets the base quantization step size (Δ) for irreversible coding.
+    ///
+    /// Typical values are in the range 0.0001–1.0. Smaller values yield
+    /// higher quality and larger files.
     pub fn set_delta(&mut self, delta: f32) {
         self.base_delta = delta;
     }
 
+    /// Sets the base quantization step size for a specific component.
     pub fn set_delta_for_comp(&mut self, comp_idx: u32, delta: f32) {
         let qcc = self.get_or_add_qcc(comp_idx);
         qcc.base_delta = delta;
     }
 
+    /// Returns the number of guard bits.
     pub fn get_num_guard_bits(&self) -> u32 {
         (self.sqcd >> 5) as u32
     }
@@ -1530,6 +1671,10 @@ fn quantize_delta(mut delta_b: f32) -> (u16, u16) {
 // param_cap — Extended Capability marker
 // =========================================================================
 
+/// CAP marker segment — extended capability descriptor.
+///
+/// Identifies HTJ2K (Part 15) capabilities and parameters such as the
+/// Ccap value that encodes the wavelet type and magnitude bound.
 #[derive(Debug, Clone)]
 pub struct ParamCap {
     pub(crate) lcap: u16,
@@ -1603,9 +1748,12 @@ impl ParamCap {
 // param_sot — Start of Tile-Part
 // =========================================================================
 
+/// SOT marker segment — start of tile-part header.
+///
+/// Contains the tile index, tile-part length, tile-part index,
+/// and total number of tile-parts.
 #[derive(Debug, Clone, Default)]
 pub struct ParamSot {
-    pub(crate) lsot: u16,
     pub(crate) isot: u16,
     pub(crate) psot: u32,
     pub(crate) tp_sot: u8,
@@ -1615,7 +1763,6 @@ pub struct ParamSot {
 impl ParamSot {
     pub fn init(&mut self, payload_length: u32, tile_idx: u16,
                 tile_part_index: u8, num_tile_parts: u8) {
-        self.lsot = 10;
         self.psot = payload_length + 12;
         self.isot = tile_idx;
         self.tp_sot = tile_part_index;
@@ -1634,7 +1781,7 @@ impl ParamSot {
         self.psot = payload_len + 14;
         let mut ok = true;
         ok &= write_u16_be(file, markers::SOT)?;
-        ok &= write_u16_be(file, self.lsot)?;
+        ok &= write_u16_be(file, 10)?; // Lsot is always 10
         ok &= write_u16_be(file, self.isot)?;
         ok &= write_u32_be(file, self.psot)?;
         ok &= write_u8(file, self.tp_sot)?;
@@ -1644,11 +1791,11 @@ impl ParamSot {
 
     pub fn read(&mut self, file: &mut dyn InfileBase, resilient: bool) -> Result<bool> {
         if resilient {
-            self.lsot = match read_u16_be(file) {
+            let lsot = match read_u16_be(file) {
                 Ok(v) => v,
                 Err(_) => { self.clear(); return Ok(false); }
             };
-            if self.lsot != 10 { self.clear(); return Ok(false); }
+            if lsot != 10 { self.clear(); return Ok(false); }
             self.isot = match read_u16_be(file) {
                 Ok(v) => v,
                 Err(_) => { self.clear(); return Ok(false); }
@@ -1667,10 +1814,10 @@ impl ParamSot {
                 Err(_) => { self.clear(); return Ok(false); }
             };
         } else {
-            self.lsot = read_u16_be(file).map_err(|_| OjphError::Codec {
+            let lsot = read_u16_be(file).map_err(|_| OjphError::Codec {
                 code: 0x00050091, message: "error reading SOT marker".into(),
             })?;
-            if self.lsot != 10 {
+            if lsot != 10 {
                 return Err(OjphError::Codec {
                     code: 0x00050092, message: "error in SOT length".into(),
                 });
@@ -1698,7 +1845,7 @@ impl ParamSot {
     }
 
     fn clear(&mut self) {
-        self.lsot = 0; self.isot = 0; self.psot = 0;
+        self.isot = 0; self.psot = 0;
         self.tp_sot = 0; self.tn_sot = 0;
     }
 }
@@ -1707,12 +1854,19 @@ impl ParamSot {
 // param_tlm — Tile-part Length Marker
 // =========================================================================
 
+/// A single (tile-index, tile-part-length) pair in a TLM marker.
 #[derive(Debug, Clone, Default)]
 pub struct TtlmPtlmPair {
+    /// Tile index.
     pub ttlm: u16,
+    /// Tile-part length (including the SOT header).
     pub ptlm: u32,
 }
 
+/// TLM marker segment — tile-part length index.
+///
+/// Allows random access to tile-parts without sequentially parsing the
+/// entire codestream.
 #[derive(Debug, Clone, Default)]
 pub struct ParamTlm {
     pub(crate) ltlm: u16,
@@ -1762,6 +1916,10 @@ pub(crate) const NLT_NO_NLT: u8 = 0;
 pub(crate) const NLT_BINARY_COMPLEMENT: u8 = 3;
 pub(crate) const NLT_UNDEFINED: u8 = 255;
 
+/// NLT marker segment — non-linearity point transformation.
+///
+/// Provides per-component non-linear transforms (e.g. two's-complement
+/// conversion for signed data).
 #[derive(Debug, Clone)]
 pub struct ParamNlt {
     pub(crate) lnlt: u16,
@@ -1786,6 +1944,14 @@ impl Default for ParamNlt {
 }
 
 impl ParamNlt {
+    /// Sets the non-linear transform type for a specific component.
+    ///
+    /// - `nl_type = 0` — no NLT
+    /// - `nl_type = 3` — binary complement (two's-complement conversion)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`OjphError::Unsupported`] if `nl_type` is not 0 or 3.
     pub fn set_nonlinear_transform(&mut self, comp_num: u32, nl_type: u8) -> Result<()> {
         if nl_type != NLT_NO_NLT && nl_type != NLT_BINARY_COMPLEMENT {
             return Err(OjphError::Unsupported(
@@ -1798,6 +1964,8 @@ impl ParamNlt {
         Ok(())
     }
 
+    /// Returns `(bit_depth, is_signed, nl_type)` for a component,
+    /// or `None` if no NLT is configured.
     pub fn get_nonlinear_transform(&self, comp_num: u32) -> Option<(u8, bool, u8)> {
         for child in &self.children {
             if child.cnlt == comp_num as u16 && child.enabled {
@@ -1814,6 +1982,7 @@ impl ParamNlt {
         None
     }
 
+    /// Returns `true` if any component has an NLT configured.
     pub fn is_any_enabled(&self) -> bool {
         if self.enabled { return true; }
         self.children.iter().any(|c| c.enabled)
@@ -1895,6 +2064,10 @@ pub(crate) enum DfsDwtType {
     VertDwt = 3,
 }
 
+/// DFS marker segment — downsampling factor styles.
+///
+/// Defines per-decomposition-level DWT type (bidirectional, horizontal-only,
+/// vertical-only, or none).
 #[derive(Debug, Clone, Default)]
 pub struct ParamDfs {
     pub(crate) ldfs: u16,
@@ -1965,9 +2138,16 @@ impl ParamDfs {
 // Comment Exchange
 // =========================================================================
 
+/// COM marker data for exchange between caller and encoder.
+///
+/// Holds the comment body and registration value (Rcom):
+/// - `rcom = 0` — binary data
+/// - `rcom = 1` — Latin text (ISO 8859-15)
 #[derive(Debug, Clone)]
 pub struct CommentExchange {
+    /// Comment body bytes.
     pub data: Vec<u8>,
+    /// Registration value (0 = binary, 1 = Latin text).
     pub rcom: u16,
 }
 
@@ -1981,11 +2161,13 @@ impl Default for CommentExchange {
 }
 
 impl CommentExchange {
+    /// Sets the comment to a Latin text string (Rcom = 1).
     pub fn set_string(&mut self, s: &str) {
         self.data = s.as_bytes().to_vec();
         self.rcom = 1; // Latin (ISO 8859-15)
     }
 
+    /// Sets the comment to binary data (Rcom = 0).
     pub fn set_data(&mut self, data: &[u8]) {
         self.data = data.to_vec();
         self.rcom = 0; // binary

@@ -3,11 +3,11 @@
 //! This module provides the HTJ2K (JPEG 2000 Part 15) block coder, which is
 //! the core entropy coding engine. It includes:
 //!
-//! - VLC/UVLC lookup table generation ([`common`])
-//! - VLC source tables ([`tables`])
-//! - 32-bit and 64-bit block encoders ([`encoder`])
-//! - 32-bit and 64-bit block decoders ([`decoder32`], [`decoder64`])
-//! - SIMD dispatch stubs ([`simd`])
+//! - VLC/UVLC lookup table generation
+//! - VLC source tables
+//! - 32-bit and 64-bit block encoders
+//! - 32-bit and 64-bit block decoders
+//! - SIMD dispatch stubs
 
 pub(crate) mod common;
 pub(crate) mod tables;
