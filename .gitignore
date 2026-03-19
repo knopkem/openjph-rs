@@ -1,0 +1,34 @@
+# Build artifacts
+/target/
+/coverage/
+/tmp/
+/*.profraw
+/*.profdata
+/*.gcda
+/*.gcno
+/*.lcov
+
+# CLI output artefacts
+/output.j2c
+/output.jph
+/output.ppm
+/output.pgm
+/output.yuv
+/output.raw
+/output.rawl
+/output.dpx
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.*
+
+# OS
+Thumbs.db

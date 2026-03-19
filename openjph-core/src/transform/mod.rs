@@ -320,8 +320,7 @@ static COLOUR_FNS: OnceLock<ColourTransformFns> = OnceLock::new();
 pub fn init_wavelet_transform_functions() -> &'static WaveletTransformFns {
     WAVELET_FNS.get_or_init(|| {
         // Start with generic implementations.
-        // Future phases will add SIMD dispatch here.
-        WaveletTransformFns {
+        let mut fns = WaveletTransformFns {
             rev_vert_step: wavelet::gen_rev_vert_step,
             rev_horz_ana: wavelet::gen_rev_horz_ana,
             rev_horz_syn: wavelet::gen_rev_horz_syn,
@@ -329,7 +328,31 @@ pub fn init_wavelet_transform_functions() -> &'static WaveletTransformFns {
             irv_vert_times_k: wavelet::gen_irv_vert_times_k,
             irv_horz_ana: wavelet::gen_irv_horz_ana,
             irv_horz_syn: wavelet::gen_irv_horz_syn,
+        };
+
+        // SIMD dispatch: select the best available implementation.
+        #[cfg(target_arch = "aarch64")]
+        {
+            // aarch64 always has NEON
+            fns.rev_vert_step = simd::neon::neon_rev_vert_step;
+            fns.irv_vert_step = simd::neon::neon_irv_vert_step;
+            fns.irv_vert_times_k = simd::neon::neon_irv_vert_times_k;
         }
+
+        #[cfg(target_arch = "x86_64")]
+        {
+            if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+                fns.rev_vert_step = simd::x86::avx2_rev_vert_step;
+                fns.irv_vert_step = simd::x86::avx2_irv_vert_step;
+                fns.irv_vert_times_k = simd::x86::avx2_irv_vert_times_k;
+            } else if is_x86_feature_detected!("sse2") {
+                fns.rev_vert_step = simd::x86::sse2_rev_vert_step;
+                fns.irv_vert_step = simd::x86::sse2_irv_vert_step;
+                fns.irv_vert_times_k = simd::x86::sse2_irv_vert_times_k;
+            }
+        }
+
+        fns
     })
 }
 
@@ -337,7 +360,7 @@ pub fn init_wavelet_transform_functions() -> &'static WaveletTransformFns {
 pub fn init_colour_transform_functions() -> &'static ColourTransformFns {
     COLOUR_FNS.get_or_init(|| {
         // Start with generic implementations.
-        ColourTransformFns {
+        let mut fns = ColourTransformFns {
             rev_convert: colour::gen_rev_convert,
             rev_convert_nlt_type3: colour::gen_rev_convert_nlt_type3,
             irv_convert_to_integer: colour::gen_irv_convert_to_integer,
@@ -348,7 +371,28 @@ pub fn init_colour_transform_functions() -> &'static ColourTransformFns {
             rct_backward: colour::gen_rct_backward,
             ict_forward: colour::gen_ict_forward,
             ict_backward: colour::gen_ict_backward,
+        };
+
+        // SIMD dispatch for colour transforms.
+        #[cfg(target_arch = "aarch64")]
+        {
+            fns.rct_forward = simd::neon_colour::neon_rct_forward;
+            fns.rct_backward = simd::neon_colour::neon_rct_backward;
+            fns.ict_forward = simd::neon_colour::neon_ict_forward;
+            fns.ict_backward = simd::neon_colour::neon_ict_backward;
         }
+
+        #[cfg(target_arch = "x86_64")]
+        {
+            if is_x86_feature_detected!("sse2") {
+                fns.rct_forward = simd::x86_colour::sse2_rct_forward;
+                fns.rct_backward = simd::x86_colour::sse2_rct_backward;
+                fns.ict_forward = simd::x86_colour::sse2_ict_forward;
+                fns.ict_backward = simd::x86_colour::sse2_ict_backward;
+            }
+        }
+
+        fns
     })
 }
 

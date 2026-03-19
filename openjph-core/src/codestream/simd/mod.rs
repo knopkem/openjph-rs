@@ -1,7 +1,13 @@
 //! SIMD-accelerated codestream routines.
 //!
-//! Generic scalar sample conversion functions (port of ojph_codestream_gen.cpp).
-//! SIMD variants will be added in future phases.
+//! Generic scalar sample conversion functions (port of ojph_codestream_gen.cpp)
+//! and platform-specific SIMD implementations.
+
+#[cfg(target_arch = "aarch64")]
+pub(crate) mod neon;
+
+#[cfg(target_arch = "x86_64")]
+pub(crate) mod x86;
 
 /// Generic signed-to-unsigned conversion for samples.
 /// Converts signed integer samples to unsigned by adding an offset of 2^(bit_depth-1).

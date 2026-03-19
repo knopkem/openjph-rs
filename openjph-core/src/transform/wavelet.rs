@@ -73,7 +73,7 @@ unsafe fn linebuf_f32(buf: &LineBuf) -> *const f32 {
 // =========================================================================
 
 #[inline]
-fn gen_rev_vert_step32(
+pub(crate) fn gen_rev_vert_step32(
     s: &LiftingStep,
     sig: &LineBuf,
     other: &LineBuf,
@@ -168,7 +168,7 @@ fn gen_rev_vert_step32(
 // =========================================================================
 
 #[inline]
-fn gen_rev_vert_step64(
+pub(crate) fn gen_rev_vert_step64(
     s: &LiftingStep,
     sig: &LineBuf,
     other: &LineBuf,

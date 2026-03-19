@@ -504,7 +504,12 @@ impl ParamSiz {
         self.lsiz = read_u16_be(file).map_err(|_| OjphError::Codec {
             code: 0x00050041, message: "error reading SIZ marker".into(),
         })?;
-        let num_comps = (self.lsiz as i32 - 38) / 3;
+        if self.lsiz < 38 {
+            return Err(OjphError::Codec {
+                code: 0x00050042, message: "error in SIZ marker length".into(),
+            });
+        }
+        let num_comps = ((self.lsiz - 38) / 3) as i32;
         if self.lsiz != 38 + 3 * num_comps as u16 {
             return Err(OjphError::Codec {
                 code: 0x00050042, message: "error in SIZ marker length".into(),
