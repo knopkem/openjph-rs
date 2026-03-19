@@ -118,9 +118,9 @@ impl Default for EncodeConfig {
             num_decomps: 5,
             block_width: 64,
             block_height: 64,
-            tile_width: 0,   // 0 = use image size
+            tile_width: 0, // 0 = use image size
             tile_height: 0,
-            qstep: 0.0001,   // very small for high quality
+            qstep: 0.0001, // very small for high quality
             progression_order: None,
         }
     }
@@ -254,7 +254,9 @@ fn roundtrip_test(config: &EncodeConfig, components: &[Vec<i32>], expect_lossles
             assert!(
                 res.mse < max_allowed_mse,
                 "component {}: MSE {} exceeds 1% of range² ({})",
-                c, res.mse, max_allowed_mse
+                c,
+                res.mse,
+                max_allowed_mse
             );
         }
     }
@@ -274,8 +276,11 @@ fn roundtrip_test(config: &EncodeConfig, components: &[Vec<i32>], expect_lossles
 fn dec_irv97_64x64_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.1,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.1,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -286,9 +291,13 @@ fn dec_irv97_64x64_rgb() {
 fn dec_irv97_32x32_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 32, block_height: 32,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 32,
+        block_height: 32,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -299,9 +308,13 @@ fn dec_irv97_32x32_rgb() {
 fn dec_irv97_16x16_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 16, block_height: 16,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 16,
+        block_height: 16,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -312,9 +325,13 @@ fn dec_irv97_16x16_rgb() {
 fn dec_irv97_4x4_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 4, block_height: 4,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 4,
+        block_height: 4,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -325,9 +342,13 @@ fn dec_irv97_4x4_rgb() {
 fn dec_irv97_1024x4_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 4, block_height: 1024,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 4,
+        block_height: 1024,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -338,9 +359,13 @@ fn dec_irv97_1024x4_rgb() {
 fn dec_irv97_4x1024_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 1024, block_height: 4,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 1024,
+        block_height: 4,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -351,9 +376,13 @@ fn dec_irv97_4x1024_rgb() {
 fn dec_irv97_512x8_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 8, block_height: 512,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 8,
+        block_height: 512,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -364,9 +393,13 @@ fn dec_irv97_512x8_rgb() {
 fn dec_irv97_8x512_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 512, block_height: 8,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 512,
+        block_height: 8,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -377,9 +410,13 @@ fn dec_irv97_8x512_rgb() {
 fn dec_irv97_256x16_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 16, block_height: 256,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 16,
+        block_height: 256,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -390,9 +427,13 @@ fn dec_irv97_256x16_rgb() {
 fn dec_irv97_16x256_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 256, block_height: 16,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 256,
+        block_height: 16,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -403,9 +444,13 @@ fn dec_irv97_16x256_rgb() {
 fn dec_irv97_128x32_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 32, block_height: 128,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 32,
+        block_height: 128,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -416,9 +461,13 @@ fn dec_irv97_128x32_rgb() {
 fn dec_irv97_32x128_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 128, block_height: 32,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 128,
+        block_height: 32,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -434,7 +483,9 @@ fn dec_irv97_32x128_rgb() {
 fn dec_rev53_64x64_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
+        width: 64,
+        height: 64,
+        num_comps: 3,
         reversible: true,
         ..Default::default()
     };
@@ -446,9 +497,12 @@ fn dec_rev53_64x64_rgb() {
 fn dec_rev53_32x32_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
+        width: 64,
+        height: 64,
+        num_comps: 3,
         reversible: true,
-        block_width: 32, block_height: 32,
+        block_width: 32,
+        block_height: 32,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -459,9 +513,12 @@ fn dec_rev53_32x32_rgb() {
 fn dec_rev53_4x4_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
+        width: 64,
+        height: 64,
+        num_comps: 3,
         reversible: true,
-        block_width: 4, block_height: 4,
+        block_width: 4,
+        block_height: 4,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -472,9 +529,12 @@ fn dec_rev53_4x4_rgb() {
 fn dec_rev53_1024x4_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
+        width: 64,
+        height: 64,
+        num_comps: 3,
         reversible: true,
-        block_width: 4, block_height: 1024,
+        block_width: 4,
+        block_height: 1024,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -485,9 +545,12 @@ fn dec_rev53_1024x4_rgb() {
 fn dec_rev53_4x1024_rgb() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
+        width: 64,
+        height: 64,
+        num_comps: 3,
         reversible: true,
-        block_width: 1024, block_height: 4,
+        block_width: 1024,
+        block_height: 4,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -503,9 +566,13 @@ fn dec_rev53_4x1024_rgb() {
 fn dec_irv97_tiles_lrcp() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
         progression_order: Some("LRCP"),
         ..Default::default()
     };
@@ -517,9 +584,13 @@ fn dec_irv97_tiles_lrcp() {
 fn dec_irv97_tiles_rlcp() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
         progression_order: Some("RLCP"),
         ..Default::default()
     };
@@ -531,9 +602,13 @@ fn dec_irv97_tiles_rlcp() {
 fn dec_irv97_tiles_rpcl() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
         progression_order: Some("RPCL"),
         ..Default::default()
     };
@@ -545,9 +620,13 @@ fn dec_irv97_tiles_rpcl() {
 fn dec_irv97_tiles_pcrl() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
         progression_order: Some("PCRL"),
         ..Default::default()
     };
@@ -559,9 +638,13 @@ fn dec_irv97_tiles_pcrl() {
 fn dec_irv97_tiles_cprl() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
         progression_order: Some("CPRL"),
         ..Default::default()
     };
@@ -578,9 +661,14 @@ fn dec_irv97_tiles_cprl() {
 fn dec_irv97_tiles_lrcp_33() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33, num_decomps: 5,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 5,
         progression_order: Some("LRCP"),
         ..Default::default()
     };
@@ -592,9 +680,14 @@ fn dec_irv97_tiles_lrcp_33() {
 fn dec_irv97_tiles_rlcp_33() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33, num_decomps: 5,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 5,
         progression_order: Some("RLCP"),
         ..Default::default()
     };
@@ -606,9 +699,14 @@ fn dec_irv97_tiles_rlcp_33() {
 fn dec_irv97_tiles_rpcl_33() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33, num_decomps: 5,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 5,
         progression_order: Some("RPCL"),
         ..Default::default()
     };
@@ -620,9 +718,14 @@ fn dec_irv97_tiles_rpcl_33() {
 fn dec_irv97_tiles_pcrl_33() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33, num_decomps: 5,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 5,
         progression_order: Some("PCRL"),
         ..Default::default()
     };
@@ -634,9 +737,14 @@ fn dec_irv97_tiles_pcrl_33() {
 fn dec_irv97_tiles_cprl_33() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33, num_decomps: 5,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 5,
         progression_order: Some("CPRL"),
         ..Default::default()
     };
@@ -653,9 +761,14 @@ fn dec_irv97_tiles_cprl_33() {
 fn dec_irv97_tiles_lrcp_33x33() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33, num_decomps: 5,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 5,
         progression_order: Some("LRCP"),
         ..Default::default()
     };
@@ -667,9 +780,14 @@ fn dec_irv97_tiles_lrcp_33x33() {
 fn dec_irv97_tiles_rlcp_33x33() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33, num_decomps: 5,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 5,
         progression_order: Some("RLCP"),
         ..Default::default()
     };
@@ -681,9 +799,14 @@ fn dec_irv97_tiles_rlcp_33x33() {
 fn dec_irv97_tiles_rpcl_33x33() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33, num_decomps: 5,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 5,
         progression_order: Some("RPCL"),
         ..Default::default()
     };
@@ -695,9 +818,14 @@ fn dec_irv97_tiles_rpcl_33x33() {
 fn dec_irv97_tiles_pcrl_33x33() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33, num_decomps: 5,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 5,
         progression_order: Some("PCRL"),
         ..Default::default()
     };
@@ -709,9 +837,14 @@ fn dec_irv97_tiles_pcrl_33x33() {
 fn dec_irv97_tiles_cprl_33x33() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33, num_decomps: 5,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 5,
         progression_order: Some("CPRL"),
         ..Default::default()
     };
@@ -728,9 +861,13 @@ fn dec_irv97_tiles_cprl_33x33() {
 fn dec_rev53_gray_tiles() {
     let comps = gen_gray_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 1,
-        reversible: true, color_transform: false,
-        tile_width: 33, tile_height: 33,
+        width: 64,
+        height: 64,
+        num_comps: 1,
+        reversible: true,
+        color_transform: false,
+        tile_width: 33,
+        tile_height: 33,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -741,9 +878,14 @@ fn dec_rev53_gray_tiles() {
 fn dec_irv97_gray_tiles() {
     let comps = gen_gray_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 1,
-        reversible: false, color_transform: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33,
+        width: 64,
+        height: 64,
+        num_comps: 1,
+        reversible: false,
+        color_transform: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -759,9 +901,12 @@ fn dec_irv97_gray_tiles() {
 fn dec_irv97_16bit_rgb() {
     let comps = gen_rgb_image_nbit(64, 64, 16);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
+        width: 64,
+        height: 64,
+        num_comps: 3,
         bit_depth: 16,
-        reversible: false, qstep: 0.01,
+        reversible: false,
+        qstep: 0.01,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -772,9 +917,13 @@ fn dec_irv97_16bit_rgb() {
 fn dec_irv97_16bit_gray() {
     let comps = gen_gray_image_nbit(64, 64, 16);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 1,
+        width: 64,
+        height: 64,
+        num_comps: 1,
         bit_depth: 16,
-        reversible: false, color_transform: false, qstep: 0.01,
+        reversible: false,
+        color_transform: false,
+        qstep: 0.01,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -785,7 +934,9 @@ fn dec_irv97_16bit_gray() {
 fn dec_rev53_16bit_rgb() {
     let comps = gen_rgb_image_nbit(64, 64, 16);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
+        width: 64,
+        height: 64,
+        num_comps: 3,
         bit_depth: 16,
         reversible: true,
         ..Default::default()
@@ -798,9 +949,12 @@ fn dec_rev53_16bit_rgb() {
 fn dec_rev53_16bit_gray() {
     let comps = gen_gray_image_nbit(64, 64, 16);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 1,
+        width: 64,
+        height: 64,
+        num_comps: 1,
         bit_depth: 16,
-        reversible: true, color_transform: false,
+        reversible: true,
+        color_transform: false,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -816,8 +970,11 @@ fn dec_rev53_16bit_gray() {
 fn enc_irv97_64x64() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.1,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.1,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -828,9 +985,13 @@ fn enc_irv97_64x64() {
 fn enc_irv97_32x32() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 32, block_height: 32,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 32,
+        block_height: 32,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -841,9 +1002,13 @@ fn enc_irv97_32x32() {
 fn enc_irv97_16x16() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 16, block_height: 16,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 16,
+        block_height: 16,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -854,9 +1019,13 @@ fn enc_irv97_16x16() {
 fn enc_irv97_4x4() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 4, block_height: 4,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 4,
+        block_height: 4,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -867,9 +1036,13 @@ fn enc_irv97_4x4() {
 fn enc_irv97_1024x4() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 4, block_height: 1024,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 4,
+        block_height: 1024,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -880,9 +1053,13 @@ fn enc_irv97_1024x4() {
 fn enc_irv97_4x1024() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 1024, block_height: 4,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 1024,
+        block_height: 4,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -893,9 +1070,13 @@ fn enc_irv97_4x1024() {
 fn enc_irv97_512x8() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 8, block_height: 512,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 8,
+        block_height: 512,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -906,9 +1087,13 @@ fn enc_irv97_512x8() {
 fn enc_irv97_8x512() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 512, block_height: 8,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 512,
+        block_height: 8,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -919,9 +1104,13 @@ fn enc_irv97_8x512() {
 fn enc_irv97_256x16() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 16, block_height: 256,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 16,
+        block_height: 256,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -932,9 +1121,13 @@ fn enc_irv97_256x16() {
 fn enc_irv97_16x256() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 256, block_height: 16,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 256,
+        block_height: 16,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -945,9 +1138,13 @@ fn enc_irv97_16x256() {
 fn enc_irv97_128x32() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 32, block_height: 128,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 32,
+        block_height: 128,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -958,9 +1155,13 @@ fn enc_irv97_128x32() {
 fn enc_irv97_32x128() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        block_width: 128, block_height: 32,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        block_width: 128,
+        block_height: 32,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -976,9 +1177,14 @@ fn enc_irv97_32x128() {
 fn enc_irv97_tiles_33x33_d5() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33, num_decomps: 5,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 5,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -989,9 +1195,14 @@ fn enc_irv97_tiles_33x33_d5() {
 fn enc_irv97_tiles_33x33_d6() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
-        reversible: false, qstep: 0.01,
-        tile_width: 33, tile_height: 33, num_decomps: 6,
+        width: 256,
+        height: 256,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 6,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -1007,9 +1218,12 @@ fn enc_irv97_tiles_33x33_d6() {
 fn enc_irv97_16bit_rgb() {
     let comps = gen_rgb_image_nbit(64, 64, 16);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
+        width: 64,
+        height: 64,
+        num_comps: 3,
         bit_depth: 16,
-        reversible: false, qstep: 0.01,
+        reversible: false,
+        qstep: 0.01,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -1020,9 +1234,13 @@ fn enc_irv97_16bit_rgb() {
 fn enc_irv97_16bit_gray() {
     let comps = gen_gray_image_nbit(64, 64, 16);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 1,
+        width: 64,
+        height: 64,
+        num_comps: 1,
         bit_depth: 16,
-        reversible: false, color_transform: false, qstep: 0.01,
+        reversible: false,
+        color_transform: false,
+        qstep: 0.01,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -1033,7 +1251,9 @@ fn enc_irv97_16bit_gray() {
 fn enc_rev53_16bit_rgb() {
     let comps = gen_rgb_image_nbit(64, 64, 16);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
+        width: 64,
+        height: 64,
+        num_comps: 3,
         bit_depth: 16,
         reversible: true,
         ..Default::default()
@@ -1046,9 +1266,12 @@ fn enc_rev53_16bit_rgb() {
 fn enc_rev53_16bit_gray() {
     let comps = gen_gray_image_nbit(64, 64, 16);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 1,
+        width: 64,
+        height: 64,
+        num_comps: 1,
         bit_depth: 16,
-        reversible: true, color_transform: false,
+        reversible: true,
+        color_transform: false,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1064,7 +1287,9 @@ fn enc_rev53_16bit_gray() {
 fn enc_rev53_64x64() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
+        width: 256,
+        height: 256,
+        num_comps: 3,
         reversible: true,
         ..Default::default()
     };
@@ -1076,9 +1301,12 @@ fn enc_rev53_64x64() {
 fn enc_rev53_32x32() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
+        width: 256,
+        height: 256,
+        num_comps: 3,
         reversible: true,
-        block_width: 32, block_height: 32,
+        block_width: 32,
+        block_height: 32,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1089,9 +1317,12 @@ fn enc_rev53_32x32() {
 fn enc_rev53_4x4() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
+        width: 256,
+        height: 256,
+        num_comps: 3,
         reversible: true,
-        block_width: 4, block_height: 4,
+        block_width: 4,
+        block_height: 4,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1102,9 +1333,12 @@ fn enc_rev53_4x4() {
 fn enc_rev53_1024x4() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
+        width: 256,
+        height: 256,
+        num_comps: 3,
         reversible: true,
-        block_width: 4, block_height: 1024,
+        block_width: 4,
+        block_height: 1024,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1115,9 +1349,12 @@ fn enc_rev53_1024x4() {
 fn enc_rev53_4x1024() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
+        width: 256,
+        height: 256,
+        num_comps: 3,
         reversible: true,
-        block_width: 1024, block_height: 4,
+        block_width: 1024,
+        block_height: 4,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1133,9 +1370,13 @@ fn enc_rev53_4x1024() {
 fn enc_rev53_tiles_33x33_d5() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
+        width: 256,
+        height: 256,
+        num_comps: 3,
         reversible: true,
-        tile_width: 33, tile_height: 33, num_decomps: 5,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 5,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1146,9 +1387,13 @@ fn enc_rev53_tiles_33x33_d5() {
 fn enc_rev53_tiles_33x33_d6() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
+        width: 256,
+        height: 256,
+        num_comps: 3,
         reversible: true,
-        tile_width: 33, tile_height: 33, num_decomps: 6,
+        tile_width: 33,
+        tile_height: 33,
+        num_decomps: 6,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1164,8 +1409,11 @@ fn enc_rev53_tiles_33x33_d6() {
 fn enc_irv97_tall_narrow() {
     let comps = gen_rgb_image(7, 93);
     let config = EncodeConfig {
-        width: 7, height: 93, num_comps: 3,
-        reversible: false, qstep: 0.1,
+        width: 7,
+        height: 93,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.1,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -1176,7 +1424,9 @@ fn enc_irv97_tall_narrow() {
 fn enc_rev53_tall_narrow() {
     let comps = gen_rgb_image(7, 93);
     let config = EncodeConfig {
-        width: 7, height: 93, num_comps: 3,
+        width: 7,
+        height: 93,
+        num_comps: 3,
         reversible: true,
         ..Default::default()
     };
@@ -1194,7 +1444,9 @@ fn enc_rev53_tall_narrow() {
 fn enc_rev53_10bit_rgb() {
     let comps = gen_rgb_image_nbit(64, 48, 10);
     let config = EncodeConfig {
-        width: 64, height: 48, num_comps: 3,
+        width: 64,
+        height: 48,
+        num_comps: 3,
         bit_depth: 10,
         reversible: true,
         ..Default::default()
@@ -1207,9 +1459,12 @@ fn enc_rev53_10bit_rgb() {
 fn enc_rev53_12bit_gray() {
     let comps = gen_gray_image_nbit(64, 48, 12);
     let config = EncodeConfig {
-        width: 64, height: 48, num_comps: 1,
+        width: 64,
+        height: 48,
+        num_comps: 1,
         bit_depth: 12,
-        reversible: true, color_transform: false,
+        reversible: true,
+        color_transform: false,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1224,8 +1479,11 @@ fn enc_rev53_12bit_gray() {
 fn enc_rev53_decomp_0() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: true, num_decomps: 0,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: true,
+        num_decomps: 0,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1236,8 +1494,11 @@ fn enc_rev53_decomp_0() {
 fn enc_rev53_decomp_1() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: true, num_decomps: 1,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: true,
+        num_decomps: 1,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1248,8 +1509,11 @@ fn enc_rev53_decomp_1() {
 fn enc_rev53_decomp_2() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: true, num_decomps: 2,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: true,
+        num_decomps: 2,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1260,8 +1524,11 @@ fn enc_rev53_decomp_2() {
 fn enc_rev53_decomp_3() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: true, num_decomps: 3,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: true,
+        num_decomps: 3,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1272,8 +1539,11 @@ fn enc_rev53_decomp_3() {
 fn enc_rev53_decomp_4() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: true, num_decomps: 4,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: true,
+        num_decomps: 4,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1284,8 +1554,11 @@ fn enc_rev53_decomp_4() {
 fn enc_rev53_decomp_5() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: true, num_decomps: 5,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: true,
+        num_decomps: 5,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, true);
@@ -1296,8 +1569,12 @@ fn enc_rev53_decomp_5() {
 fn enc_irv97_decomp_0() {
     let comps = gen_rgb_image(64, 64);
     let config = EncodeConfig {
-        width: 64, height: 64, num_comps: 3,
-        reversible: false, num_decomps: 0, qstep: 0.001,
+        width: 64,
+        height: 64,
+        num_comps: 3,
+        reversible: false,
+        num_decomps: 0,
+        qstep: 0.001,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -1308,7 +1585,9 @@ fn enc_irv97_decomp_0() {
 fn enc_rev53_256x256() {
     let comps = gen_rgb_image(256, 256);
     let config = EncodeConfig {
-        width: 256, height: 256, num_comps: 3,
+        width: 256,
+        height: 256,
+        num_comps: 3,
         reversible: true,
         ..Default::default()
     };
@@ -1320,7 +1599,9 @@ fn enc_rev53_256x256() {
 fn enc_rev53_127x93() {
     let comps = gen_rgb_image(127, 93);
     let config = EncodeConfig {
-        width: 127, height: 93, num_comps: 3,
+        width: 127,
+        height: 93,
+        num_comps: 3,
         reversible: true,
         ..Default::default()
     };
@@ -1332,8 +1613,11 @@ fn enc_rev53_127x93() {
 fn enc_irv97_127x93() {
     let comps = gen_rgb_image(127, 93);
     let config = EncodeConfig {
-        width: 127, height: 93, num_comps: 3,
-        reversible: false, qstep: 0.01,
+        width: 127,
+        height: 93,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.01,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);
@@ -1344,8 +1628,11 @@ fn enc_irv97_127x93() {
 fn enc_irv97_high_compression() {
     let comps = gen_rgb_image(128, 128);
     let config = EncodeConfig {
-        width: 128, height: 128, num_comps: 3,
-        reversible: false, qstep: 0.5,
+        width: 128,
+        height: 128,
+        num_comps: 3,
+        reversible: false,
+        qstep: 0.5,
         ..Default::default()
     };
     roundtrip_test(&config, &comps, false);

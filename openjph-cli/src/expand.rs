@@ -18,7 +18,10 @@ use img_io::ImageWriter;
 
 /// HTJ2K image decompression tool
 #[derive(Parser, Debug)]
-#[command(name = "ojph_expand", about = "Decompress HTJ2K (JPEG 2000 Part 15) codestreams to images")]
+#[command(
+    name = "ojph_expand",
+    about = "Decompress HTJ2K (JPEG 2000 Part 15) codestreams to images"
+)]
 struct Args {
     /// Input codestream file (.j2c, .jph)
     #[arg(short = 'i', long = "input")]
@@ -50,7 +53,8 @@ fn run() -> Result<()> {
     let mut infile = J2cInfile::open(&args.input)
         .map_err(|e| anyhow::anyhow!("Cannot open '{}': {:?}", args.input, e))?;
 
-    codestream.read_headers(&mut infile)
+    codestream
+        .read_headers(&mut infile)
         .map_err(|e| anyhow::anyhow!("Failed to read codestream headers: {:?}", e))?;
 
     if args.resilient {
@@ -89,14 +93,20 @@ fn run() -> Result<()> {
 
     if lower_output.ends_with(".pgm") {
         if num_comps != 1 {
-            bail!(".pgm output requires exactly 1 component, got {}", num_comps);
+            bail!(
+                ".pgm output requires exactly 1 component, got {}",
+                num_comps
+            );
         }
         writer.configure(recon_widths[0], recon_heights[0], 1, bit_depths[0])?;
         writer.open(&args.output)?;
         is_planar = false;
     } else if lower_output.ends_with(".ppm") {
         if num_comps != 3 {
-            bail!(".ppm output requires exactly 3 components, got {}", num_comps);
+            bail!(
+                ".ppm output requires exactly 3 components, got {}",
+                num_comps
+            );
         }
         // Verify uniform downsampling
         let ds0 = downsamplings[0];
@@ -127,7 +137,10 @@ fn run() -> Result<()> {
         is_planar = true;
     } else if lower_output.ends_with(".rawl") || lower_output.ends_with(".raw") {
         if num_comps != 1 {
-            bail!(".rawl output requires exactly 1 component, got {}", num_comps);
+            bail!(
+                ".rawl output requires exactly 1 component, got {}",
+                num_comps
+            );
         }
 
         let rawl_writer = writer
@@ -150,10 +163,7 @@ fn run() -> Result<()> {
 
     eprintln!(
         "ojph_expand: configured {}x{} ({} components) -> {}",
-        recon_widths[0],
-        recon_heights[0],
-        num_comps,
-        args.output,
+        recon_widths[0], recon_heights[0], num_comps, args.output,
     );
     eprintln!("Note: actual HTJ2K decoding will be completed when codestream.pull() is wired.");
 

@@ -57,21 +57,34 @@ impl TagTree {
             h = div_ceil(h, 2);
         }
         let num_levels = widths.len() as u32;
-        let total: u32 = widths.iter().zip(heights.iter()).map(|(&w, &h)| w * h).sum();
+        let total: u32 = widths
+            .iter()
+            .zip(heights.iter())
+            .map(|(&w, &h)| w * h)
+            .sum();
         let nodes = vec![0u32; total as usize];
-        Self { nodes, widths, heights, num_levels }
+        Self {
+            nodes,
+            widths,
+            heights,
+            num_levels,
+        }
     }
 
     /// Get the value at a leaf position (codeblock index).
     pub fn get_value(&self, x: u32, y: u32) -> u32 {
-        if self.num_levels == 0 { return 0; }
+        if self.num_levels == 0 {
+            return 0;
+        }
         let idx = y * self.widths[0] + x;
         self.nodes[idx as usize]
     }
 
     /// Set the value at a leaf position.
     pub fn set_value(&mut self, x: u32, y: u32, val: u32) {
-        if self.num_levels == 0 { return; }
+        if self.num_levels == 0 {
+            return;
+        }
         let idx = y * self.widths[0] + x;
         self.nodes[idx as usize] = val;
     }

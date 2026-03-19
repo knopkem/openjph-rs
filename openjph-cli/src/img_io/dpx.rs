@@ -88,7 +88,9 @@ impl DpxReader {
 }
 
 impl ImageReader for DpxReader {
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 
     fn open(&mut self, filename: &str) -> anyhow::Result<()> {
         let file = File::open(filename)
@@ -179,7 +181,10 @@ impl ImageReader for DpxReader {
     fn read_line(&mut self, comp_num: u32) -> anyhow::Result<&[i32]> {
         // Read raw data when processing component 0
         if comp_num == 0 || !self.cur_line_read {
-            let reader = self.reader.as_mut().ok_or_else(|| anyhow::anyhow!("File not open"))?;
+            let reader = self
+                .reader
+                .as_mut()
+                .ok_or_else(|| anyhow::anyhow!("File not open"))?;
 
             if self.bit_depth == 10 && self.packing != 0 {
                 // 10-bit packed Method A

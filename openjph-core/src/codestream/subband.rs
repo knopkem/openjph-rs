@@ -3,11 +3,11 @@
 //! Port of `ojph_subband.h/cpp`. A subband represents one frequency band
 //! (LL, HL, LH, or HH) at a particular resolution level.
 
+use super::codeblock::*;
+use crate::coding::decoder32::decode_codeblock32;
+use crate::coding::encoder::encode_codeblock32;
 use crate::error::Result;
 use crate::types::*;
-use crate::coding::encoder::encode_codeblock32;
-use crate::coding::decoder32::decode_codeblock32;
-use super::codeblock::*;
 
 /// Subband types: LL (lowpass-lowpass), HL, LH, HH.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,14 +93,12 @@ impl Subband {
         let bw = 1u32 << log_block_dims.w;
         let bh = 1u32 << log_block_dims.h;
         let num_blocks_x = if band_rect.siz.w > 0 {
-            div_ceil(band_rect.org.x + band_rect.siz.w, bw)
-                - (band_rect.org.x / bw)
+            div_ceil(band_rect.org.x + band_rect.siz.w, bw) - (band_rect.org.x / bw)
         } else {
             0
         };
         let num_blocks_y = if band_rect.siz.h > 0 {
-            div_ceil(band_rect.org.y + band_rect.siz.h, bh)
-                - (band_rect.org.y / bh)
+            div_ceil(band_rect.org.y + band_rect.siz.h, bh) - (band_rect.org.y / bh)
         } else {
             0
         };
@@ -173,24 +171,45 @@ impl Subband {
                 continue;
             }
 
+            let nominal_w = 1u32 << cb.log_block_dims.w;
+            let nominal_h = 1u32 << cb.log_block_dims.h;
+            let stride = (nominal_w + 7) & !7;
+
             // Extract and convert coefficients: i32 → u32 (sign<<31 | magnitude)
             let cb_x0 = cb.cb_rect.org.x - self.band_rect.org.x;
             let cb_y0 = cb.cb_rect.org.y - self.band_rect.org.y;
-            let stride = cb_w;
-            let mut u32_buf = vec![0u32; (cb_w * cb_h) as usize];
-            let mut max_mag = 0u32;
+            let mut u32_buf = vec![0u32; (stride * nominal_h) as usize];
+            let mut max_val = 0u32;
 
-            for y in 0..cb_h {
-                for x in 0..cb_w {
-                    let coeff = self.coeffs[((cb_y0 + y) * sb_w + (cb_x0 + x)) as usize];
-                    let sign = if coeff < 0 { 1u32 } else { 0u32 };
-                    let mag = coeff.unsigned_abs();
-                    u32_buf[(y * stride + x) as usize] = (sign << 31) | mag;
-                    max_mag = max_mag.max(mag);
+            if self.reversible {
+                let shift = 31u32.saturating_sub(self.k_max);
+                for v in &mut u32_buf {
+                    *v = 0;
+                }
+                for y in 0..cb_h {
+                    for x in 0..cb_w {
+                        let coeff = self.coeffs[((cb_y0 + y) * sb_w + (cb_x0 + x)) as usize];
+                        let sign = if coeff < 0 { 0x8000_0000 } else { 0 };
+                        let mag = coeff.unsigned_abs() << shift;
+                        let val = sign | mag;
+                        u32_buf[(y * stride + x) as usize] = val;
+                        max_val |= mag;
+                    }
+                }
+            } else {
+                for y in 0..cb_h {
+                    for x in 0..cb_w {
+                        let coeff = self.coeffs[((cb_y0 + y) * sb_w + (cb_x0 + x)) as usize];
+                        let sign = if coeff < 0 { 0x8000_0000 } else { 0 };
+                        let mag = coeff.unsigned_abs();
+                        let val = sign | mag;
+                        u32_buf[(y * stride + x) as usize] = val;
+                        max_val |= mag;
+                    }
                 }
             }
 
-            if max_mag == 0 {
+            if max_val == 0 {
                 cb.enc_state = Some(CodeblockEncState {
                     pass1_bytes: 0,
                     pass2_bytes: 0,
@@ -201,25 +220,11 @@ impl Subband {
                 continue;
             }
 
-            // The HTJ2K block coder operates on magnitudes where the MSB of
-            // the meaningful data is at bit position 30 (after sign in bit 31).
-            // p = 30 - missing_msbs is the number of significant bit-planes.
-            // We need to left-shift magnitudes so the MSB sits at bit 30.
-            let num_bits = 32 - max_mag.leading_zeros(); // bits needed for max_mag
-            let shift = 30 - (num_bits as i32 - 1);
-            // Cap at 29: the block coder needs p = 30 - missing_msbs >= 1
-            // (p=0 causes underflow in the decoder's (v_n+2)<<(p-1) shift).
-            let shift = shift.max(0).min(29) as u32;
-            let missing_msbs = shift;
-
-            // Left-shift all magnitudes
-            if shift > 0 {
-                for v in &mut u32_buf {
-                    let sign = *v & 0x8000_0000;
-                    let mag = (*v & 0x7FFF_FFFF) << shift;
-                    *v = sign | mag;
-                }
-            }
+            let missing_msbs = if self.reversible {
+                self.k_max.saturating_sub(1)
+            } else {
+                0
+            };
 
             let result = encode_codeblock32(&u32_buf, missing_msbs, 1, cb_w, cb_h, stride)?;
 
@@ -261,11 +266,10 @@ impl Subband {
                 continue;
             }
 
-            let stride = cb_w;
-            // Pad height to even: the decoder processes 2x2 quads and
-            // writes to row y+1, which overflows for odd heights.
-            let padded_h = (cb_h + 1) & !1;
-            let mut decoded = vec![0u32; (stride * padded_h) as usize];
+            let nominal_w = 1u32 << cb.log_block_dims.w;
+            let nominal_h = 1u32 << cb.log_block_dims.h;
+            let stride = (nominal_w + 7) & !7;
+            let mut decoded = vec![0u32; (stride * nominal_h) as usize];
 
             let _ok = decode_codeblock32(
                 &mut cb.coded_data,
@@ -279,18 +283,29 @@ impl Subband {
                 stride,
                 false,
             )?;
-
-            // The decoder produces magnitudes left-shifted by missing_msbs.
-            // Right-shift to recover original magnitude.
-            let shift = dec.missing_msbs;
+            let shift = 31u32.saturating_sub(self.k_max);
             let cb_x0 = cb.cb_rect.org.x - self.band_rect.org.x;
             let cb_y0 = cb.cb_rect.org.y - self.band_rect.org.y;
             for y in 0..cb_h {
                 for x in 0..cb_w {
                     let val = decoded[(y * stride + x) as usize];
                     let sign = (val >> 31) & 1;
-                    let mag = (val & 0x7FFF_FFFF) >> shift;
-                    let coeff = if sign != 0 { -(mag as i32) } else { mag as i32 };
+                    let coeff = if self.reversible {
+                        let mag = (val & 0x7FFF_FFFF) >> shift;
+                        if sign != 0 {
+                            -(mag as i32)
+                        } else {
+                            mag as i32
+                        }
+                    } else {
+                        let mag = (val & 0x7FFF_FFFF) as f32 * self.delta;
+                        let mag = mag.round() as i32;
+                        if sign != 0 {
+                            -mag
+                        } else {
+                            mag
+                        }
+                    };
                     self.coeffs[((cb_y0 + y) * sb_w + (cb_x0 + x)) as usize] = coeff;
                 }
             }

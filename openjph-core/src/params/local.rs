@@ -4,10 +4,10 @@
 
 use std::f64::consts::LN_2;
 
-use crate::error::{OjphError, Result};
-use crate::types::*;
-use crate::file::{OutfileBase, InfileBase};
 use crate::arch::population_count;
+use crate::error::{OjphError, Result};
+use crate::file::{InfileBase, OutfileBase};
+use crate::types::*;
 
 // =========================================================================
 // JPEG 2000 Marker Codes
@@ -190,7 +190,10 @@ pub(crate) fn swap_byte_u64(v: u64) -> u64 {
 fn read_u8(file: &mut dyn InfileBase) -> Result<u8> {
     let mut buf = [0u8; 1];
     if file.read(&mut buf)? != 1 {
-        return Err(OjphError::Codec { code: 0, message: "unexpected EOF reading u8".into() });
+        return Err(OjphError::Codec {
+            code: 0,
+            message: "unexpected EOF reading u8".into(),
+        });
     }
     Ok(buf[0])
 }
@@ -198,7 +201,10 @@ fn read_u8(file: &mut dyn InfileBase) -> Result<u8> {
 fn read_u16_be(file: &mut dyn InfileBase) -> Result<u16> {
     let mut buf = [0u8; 2];
     if file.read(&mut buf)? != 2 {
-        return Err(OjphError::Codec { code: 0, message: "unexpected EOF reading u16".into() });
+        return Err(OjphError::Codec {
+            code: 0,
+            message: "unexpected EOF reading u16".into(),
+        });
     }
     Ok(u16::from_be_bytes(buf))
 }
@@ -206,7 +212,10 @@ fn read_u16_be(file: &mut dyn InfileBase) -> Result<u16> {
 fn read_u32_be(file: &mut dyn InfileBase) -> Result<u32> {
     let mut buf = [0u8; 4];
     if file.read(&mut buf)? != 4 {
-        return Err(OjphError::Codec { code: 0, message: "unexpected EOF reading u32".into() });
+        return Err(OjphError::Codec {
+            code: 0,
+            message: "unexpected EOF reading u32".into(),
+        });
     }
     Ok(u32::from_be_bytes(buf))
 }
@@ -286,10 +295,14 @@ impl Default for ParamSiz {
         Self {
             lsiz: 0,
             rsiz: RSIZ_HT_FLAG,
-            xsiz: 0, ysiz: 0,
-            xo_siz: 0, yo_siz: 0,
-            xt_siz: 0, yt_siz: 0,
-            xto_siz: 0, yto_siz: 0,
+            xsiz: 0,
+            ysiz: 0,
+            xo_siz: 0,
+            yo_siz: 0,
+            xt_siz: 0,
+            yt_siz: 0,
+            xto_siz: 0,
+            yto_siz: 0,
             csiz: 0,
             components: Vec::new(),
             skipped_resolutions: 0,
@@ -345,7 +358,8 @@ impl ParamSiz {
     /// Sets the number of image components (Csiz) and allocates storage.
     pub fn set_num_components(&mut self, num_comps: u32) {
         self.csiz = num_comps as u16;
-        self.components.resize(num_comps as usize, SizCompInfo::default());
+        self.components
+            .resize(num_comps as usize, SizCompInfo::default());
     }
 
     /// Returns the number of image components.
@@ -360,8 +374,13 @@ impl ParamSiz {
     ///
     /// Debug-panics if `comp_num >= num_components` or if either
     /// downsampling factor is zero.
-    pub fn set_comp_info(&mut self, comp_num: u32, downsampling: Point,
-                         bit_depth: u32, is_signed: bool) {
+    pub fn set_comp_info(
+        &mut self,
+        comp_num: u32,
+        downsampling: Point,
+        bit_depth: u32,
+        is_signed: bool,
+    ) {
         debug_assert!(comp_num < self.csiz as u32);
         debug_assert!(downsampling.x != 0 && downsampling.y != 0);
         let c = &mut self.components[comp_num as usize];
@@ -460,9 +479,7 @@ impl ParamSiz {
                 message: "Tile offset has to be smaller than the image offset".into(),
             });
         }
-        if self.xt_siz + self.xto_siz <= self.xo_siz
-            || self.yt_siz + self.yto_siz <= self.yo_siz
-        {
+        if self.xt_siz + self.xto_siz <= self.xo_siz || self.yt_siz + self.yto_siz <= self.yo_siz {
             return Err(OjphError::Codec {
                 code: 0x00040003,
                 message: "The top left tile must intersect with the image".into(),
@@ -502,21 +519,25 @@ impl ParamSiz {
 
     pub fn read(&mut self, file: &mut dyn InfileBase) -> Result<()> {
         self.lsiz = read_u16_be(file).map_err(|_| OjphError::Codec {
-            code: 0x00050041, message: "error reading SIZ marker".into(),
+            code: 0x00050041,
+            message: "error reading SIZ marker".into(),
         })?;
         if self.lsiz < 38 {
             return Err(OjphError::Codec {
-                code: 0x00050042, message: "error in SIZ marker length".into(),
+                code: 0x00050042,
+                message: "error in SIZ marker length".into(),
             });
         }
         let num_comps = ((self.lsiz - 38) / 3) as i32;
         if self.lsiz != 38 + 3 * num_comps as u16 {
             return Err(OjphError::Codec {
-                code: 0x00050042, message: "error in SIZ marker length".into(),
+                code: 0x00050042,
+                message: "error in SIZ marker length".into(),
             });
         }
         self.rsiz = read_u16_be(file).map_err(|_| OjphError::Codec {
-            code: 0x00050043, message: "error reading SIZ marker".into(),
+            code: 0x00050043,
+            message: "error reading SIZ marker".into(),
         })?;
         if (self.rsiz & 0x4000) == 0 {
             return Err(OjphError::Codec {
@@ -525,34 +546,43 @@ impl ParamSiz {
             });
         }
         self.xsiz = read_u32_be(file).map_err(|_| OjphError::Codec {
-            code: 0x00050045, message: "error reading SIZ marker".into(),
+            code: 0x00050045,
+            message: "error reading SIZ marker".into(),
         })?;
         self.ysiz = read_u32_be(file).map_err(|_| OjphError::Codec {
-            code: 0x00050046, message: "error reading SIZ marker".into(),
+            code: 0x00050046,
+            message: "error reading SIZ marker".into(),
         })?;
         let xo = read_u32_be(file).map_err(|_| OjphError::Codec {
-            code: 0x00050047, message: "error reading SIZ marker".into(),
+            code: 0x00050047,
+            message: "error reading SIZ marker".into(),
         })?;
         let yo = read_u32_be(file).map_err(|_| OjphError::Codec {
-            code: 0x00050048, message: "error reading SIZ marker".into(),
+            code: 0x00050048,
+            message: "error reading SIZ marker".into(),
         })?;
         self.set_image_offset(Point::new(xo, yo));
         let xtw = read_u32_be(file).map_err(|_| OjphError::Codec {
-            code: 0x00050049, message: "error reading SIZ marker".into(),
+            code: 0x00050049,
+            message: "error reading SIZ marker".into(),
         })?;
         let yth = read_u32_be(file).map_err(|_| OjphError::Codec {
-            code: 0x0005004A, message: "error reading SIZ marker".into(),
+            code: 0x0005004A,
+            message: "error reading SIZ marker".into(),
         })?;
         self.set_tile_size(Size::new(xtw, yth));
         let xto = read_u32_be(file).map_err(|_| OjphError::Codec {
-            code: 0x0005004B, message: "error reading SIZ marker".into(),
+            code: 0x0005004B,
+            message: "error reading SIZ marker".into(),
         })?;
         let yto = read_u32_be(file).map_err(|_| OjphError::Codec {
-            code: 0x0005004C, message: "error reading SIZ marker".into(),
+            code: 0x0005004C,
+            message: "error reading SIZ marker".into(),
         })?;
         self.set_tile_offset(Point::new(xto, yto));
         self.csiz = read_u16_be(file).map_err(|_| OjphError::Codec {
-            code: 0x0005004D, message: "error reading SIZ marker".into(),
+            code: 0x0005004D,
+            message: "error reading SIZ marker".into(),
         })?;
         if self.csiz as i32 != num_comps {
             return Err(OjphError::Codec {
@@ -563,13 +593,16 @@ impl ParamSiz {
         self.set_num_components(self.csiz as u32);
         for c in 0..self.csiz as usize {
             self.components[c].ssiz = read_u8(file).map_err(|_| OjphError::Codec {
-                code: 0x00050051, message: "error reading SIZ marker".into(),
+                code: 0x00050051,
+                message: "error reading SIZ marker".into(),
             })?;
             self.components[c].xr_siz = read_u8(file).map_err(|_| OjphError::Codec {
-                code: 0x00050052, message: "error reading SIZ marker".into(),
+                code: 0x00050052,
+                message: "error reading SIZ marker".into(),
             })?;
             self.components[c].yr_siz = read_u8(file).map_err(|_| OjphError::Codec {
-                code: 0x00050053, message: "error reading SIZ marker".into(),
+                code: 0x00050053,
+                message: "error reading SIZ marker".into(),
             })?;
             if (self.components[c].ssiz & 0x7F) > 37 {
                 return Err(OjphError::Codec {
@@ -613,10 +646,10 @@ impl Default for CodSPcod {
     fn default() -> Self {
         Self {
             num_decomp: 5,
-            block_width: 4,   // 2^(4+2)=64
-            block_height: 4,  // 2^(4+2)=64
+            block_width: 4,    // 2^(4+2)=64
+            block_height: 4,   // 2^(4+2)=64
             block_style: 0x40, // HT mode
-            wavelet_trans: 0, // reversible 5/3
+            wavelet_trans: 0,  // reversible 5/3
             precinct_size: [0; 33],
         }
     }
@@ -624,7 +657,10 @@ impl Default for CodSPcod {
 
 impl CodSPcod {
     pub fn get_log_block_dims(&self) -> Size {
-        Size::new((self.block_width + 2) as u32, (self.block_height + 2) as u32)
+        Size::new(
+            (self.block_width + 2) as u32,
+            (self.block_height + 2) as u32,
+        )
     }
 
     pub fn get_block_dims(&self) -> Size {
@@ -781,9 +817,10 @@ impl ParamCod {
                 self.sg_cod.prog_order = po as u8;
                 Ok(())
             }
-            None => Err(OjphError::InvalidParam(
-                format!("unknown progression order: {}", name),
-            )),
+            None => Err(OjphError::InvalidParam(format!(
+                "unknown progression order: {}",
+                name
+            ))),
         }
     }
 
@@ -938,19 +975,23 @@ impl ParamCod {
                 if p.x != pi.x || p.y != pi.y {
                     return Err(OjphError::Codec {
                         code: 0x00040012,
-                        message: "color transform requires same downsampling for first 3 components".into(),
+                        message:
+                            "color transform requires same downsampling for first 3 components"
+                                .into(),
                     });
                 }
                 if bd != siz.get_bit_depth(i) {
                     return Err(OjphError::Codec {
                         code: 0x00040014,
-                        message: "color transform requires same bit depth for first 3 components".into(),
+                        message: "color transform requires same bit depth for first 3 components"
+                            .into(),
                     });
                 }
                 if s != siz.is_signed(i) {
                     return Err(OjphError::Codec {
                         code: 0x00040015,
-                        message: "color transform requires same signedness for first 3 components".into(),
+                        message: "color transform requires same signedness for first 3 components"
+                            .into(),
                     });
                 }
             }
@@ -996,7 +1037,11 @@ impl ParamCod {
 
     fn internal_write_coc(&self, file: &mut dyn OutfileBase, num_comps: u32) -> Result<bool> {
         let lcod: u16 = if num_comps < 257 { 9 } else { 10 }
-            + if self.scod & 1 != 0 { 1 + self.sp_cod.num_decomp as u16 } else { 0 };
+            + if self.scod & 1 != 0 {
+                1 + self.sp_cod.num_decomp as u16
+            } else {
+                0
+            };
         let mut ok = true;
         ok &= write_u16_be(file, markers::COC)?;
         ok &= write_u16_be(file, lcod)?;
@@ -1021,34 +1066,44 @@ impl ParamCod {
 
     pub fn read(&mut self, file: &mut dyn InfileBase) -> Result<()> {
         self.lcod = read_u16_be(file).map_err(|_| OjphError::Codec {
-            code: 0x00050071, message: "error reading COD segment".into(),
+            code: 0x00050071,
+            message: "error reading COD segment".into(),
         })?;
         self.scod = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050072, message: "error reading COD segment".into(),
+            code: 0x00050072,
+            message: "error reading COD segment".into(),
         })?;
         self.sg_cod.prog_order = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050073, message: "error reading COD segment".into(),
+            code: 0x00050073,
+            message: "error reading COD segment".into(),
         })?;
         self.sg_cod.num_layers = read_u16_be(file).map_err(|_| OjphError::Codec {
-            code: 0x00050074, message: "error reading COD segment".into(),
+            code: 0x00050074,
+            message: "error reading COD segment".into(),
         })?;
         self.sg_cod.mc_trans = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050075, message: "error reading COD segment".into(),
+            code: 0x00050075,
+            message: "error reading COD segment".into(),
         })?;
         self.sp_cod.num_decomp = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050076, message: "error reading COD segment".into(),
+            code: 0x00050076,
+            message: "error reading COD segment".into(),
         })?;
         self.sp_cod.block_width = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050077, message: "error reading COD segment".into(),
+            code: 0x00050077,
+            message: "error reading COD segment".into(),
         })?;
         self.sp_cod.block_height = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050078, message: "error reading COD segment".into(),
+            code: 0x00050078,
+            message: "error reading COD segment".into(),
         })?;
         self.sp_cod.block_style = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050079, message: "error reading COD segment".into(),
+            code: 0x00050079,
+            message: "error reading COD segment".into(),
         })?;
         self.sp_cod.wavelet_trans = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x0005007A, message: "error reading COD segment".into(),
+            code: 0x0005007A,
+            message: "error reading COD segment".into(),
         })?;
 
         if self.get_num_decompositions() > 32
@@ -1068,14 +1123,21 @@ impl ParamCod {
         if self.scod & 1 != 0 {
             for i in 0..=nd as usize {
                 self.sp_cod.precinct_size[i] = read_u8(file).map_err(|_| OjphError::Codec {
-                    code: 0x0005007B, message: "error reading COD segment".into(),
+                    code: 0x0005007B,
+                    message: "error reading COD segment".into(),
                 })?;
             }
         }
-        let expected = 12 + if self.scod & 1 != 0 { 1 + self.sp_cod.num_decomp as u16 } else { 0 };
+        let expected = 12
+            + if self.scod & 1 != 0 {
+                1 + self.sp_cod.num_decomp as u16
+            } else {
+                0
+            };
         if self.lcod != expected {
             return Err(OjphError::Codec {
-                code: 0x0005007C, message: "error in COD segment length".into(),
+                code: 0x0005007C,
+                message: "error in COD segment length".into(),
             });
         }
         Ok(())
@@ -1084,34 +1146,43 @@ impl ParamCod {
     pub fn read_coc(&mut self, file: &mut dyn InfileBase, num_comps: u32) -> Result<()> {
         self.cod_type = CodType::CocMain;
         self.lcod = read_u16_be(file).map_err(|_| OjphError::Codec {
-            code: 0x00050121, message: "error reading COC segment".into(),
+            code: 0x00050121,
+            message: "error reading COC segment".into(),
         })?;
         if num_comps < 257 {
             self.comp_idx = read_u8(file).map_err(|_| OjphError::Codec {
-                code: 0x00050122, message: "error reading COC segment".into(),
+                code: 0x00050122,
+                message: "error reading COC segment".into(),
             })? as u16;
         } else {
             self.comp_idx = read_u16_be(file).map_err(|_| OjphError::Codec {
-                code: 0x00050123, message: "error reading COC segment".into(),
+                code: 0x00050123,
+                message: "error reading COC segment".into(),
             })?;
         }
         self.scod = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050124, message: "error reading COC segment".into(),
+            code: 0x00050124,
+            message: "error reading COC segment".into(),
         })?;
         self.sp_cod.num_decomp = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050125, message: "error reading COC segment".into(),
+            code: 0x00050125,
+            message: "error reading COC segment".into(),
         })?;
         self.sp_cod.block_width = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050126, message: "error reading COC segment".into(),
+            code: 0x00050126,
+            message: "error reading COC segment".into(),
         })?;
         self.sp_cod.block_height = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050127, message: "error reading COC segment".into(),
+            code: 0x00050127,
+            message: "error reading COC segment".into(),
         })?;
         self.sp_cod.block_style = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050128, message: "error reading COC segment".into(),
+            code: 0x00050128,
+            message: "error reading COC segment".into(),
         })?;
         self.sp_cod.wavelet_trans = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050129, message: "error reading COC segment".into(),
+            code: 0x00050129,
+            message: "error reading COC segment".into(),
         })?;
 
         if self.get_num_decompositions() > 32
@@ -1130,7 +1201,8 @@ impl ParamCod {
         if self.scod & 1 != 0 {
             for i in 0..=nd as usize {
                 self.sp_cod.precinct_size[i] = read_u8(file).map_err(|_| OjphError::Codec {
-                    code: 0x0005012A, message: "error reading COC segment".into(),
+                    code: 0x0005012A,
+                    message: "error reading COC segment".into(),
                 })?;
             }
         }
@@ -1138,7 +1210,8 @@ impl ParamCod {
         expected += if self.scod & 1 != 0 { 1 + nd as u32 } else { 0 };
         if self.lcod as u32 != expected {
             return Err(OjphError::Codec {
-                code: 0x0005012B, message: "error in COC segment length".into(),
+                code: 0x0005012B,
+                message: "error in COC segment length".into(),
             });
         }
         Ok(())
@@ -1210,26 +1283,80 @@ impl Default for ParamQcd {
 mod bibo_gains {
     pub fn get_bibo_gain_l(num_decomps: u32, _rev: bool) -> f64 {
         static GAINS_L: [f64; 34] = [
-            1.0, 1.5, 2.0, 2.75, 3.6875, 4.96875, 6.671875, 8.953125,
-            12.015625, 16.125, 21.65625, 29.078125, 39.046875, 52.4375,
-            70.421875, 94.578125, 127.015625, 170.53125, 229.015625,
-            307.578125, 413.015625, 554.578125, 744.734375, 1000.234375,
-            1343.015625, 1803.234375, 2420.734375, 3250.734375,
-            4365.234375, 5862.234375, 7871.234375, 10571.234375,
-            14198.734375, 19066.734375,
+            1.0,
+            1.5,
+            2.0,
+            2.75,
+            3.6875,
+            4.96875,
+            6.671875,
+            8.953125,
+            12.015625,
+            16.125,
+            21.65625,
+            29.078125,
+            39.046875,
+            52.4375,
+            70.421875,
+            94.578125,
+            127.015625,
+            170.53125,
+            229.015625,
+            307.578125,
+            413.015625,
+            554.578125,
+            744.734375,
+            1000.234375,
+            1343.015625,
+            1803.234375,
+            2420.734375,
+            3250.734375,
+            4365.234375,
+            5862.234375,
+            7871.234375,
+            10571.234375,
+            14198.734375,
+            19066.734375,
         ];
         GAINS_L[num_decomps.min(33) as usize]
     }
 
     pub fn get_bibo_gain_h(num_decomps: u32, _rev: bool) -> f64 {
         static GAINS_H: [f64; 34] = [
-            2.0, 2.75, 3.6875, 4.96875, 6.671875, 8.953125, 12.015625,
-            16.125, 21.65625, 29.078125, 39.046875, 52.4375, 70.421875,
-            94.578125, 127.015625, 170.53125, 229.015625, 307.578125,
-            413.015625, 554.578125, 744.734375, 1000.234375, 1343.015625,
-            1803.234375, 2420.734375, 3250.734375, 4365.234375,
-            5862.234375, 7871.234375, 10571.234375, 14198.734375,
-            19066.734375, 25606.234375, 34394.234375,
+            2.0,
+            2.75,
+            3.6875,
+            4.96875,
+            6.671875,
+            8.953125,
+            12.015625,
+            16.125,
+            21.65625,
+            29.078125,
+            39.046875,
+            52.4375,
+            70.421875,
+            94.578125,
+            127.015625,
+            170.53125,
+            229.015625,
+            307.578125,
+            413.015625,
+            554.578125,
+            744.734375,
+            1000.234375,
+            1343.015625,
+            1803.234375,
+            2420.734375,
+            3250.734375,
+            4365.234375,
+            5862.234375,
+            7871.234375,
+            10571.234375,
+            14198.734375,
+            19066.734375,
+            25606.234375,
+            34394.234375,
         ];
         GAINS_H[num_decomps.min(33) as usize]
     }
@@ -1239,24 +1366,20 @@ mod bibo_gains {
 mod sqrt_energy_gains {
     pub fn get_gain_l(num_decomps: u32, _rev: bool) -> f32 {
         static GAINS_L: [f32; 34] = [
-            1.0, 1.4021, 1.9692, 2.7665, 3.8873, 5.4645, 7.6816,
-            10.7968, 15.1781, 21.3348, 29.9852, 42.1538, 59.2485,
-            83.2750, 117.0424, 164.4989, 231.2285, 325.0069, 456.8019,
-            641.9960, 902.5009, 1268.6768, 1783.6345, 2506.8855,
-            3522.8044, 4952.2319, 6960.2544, 9781.8203, 13748.4473,
-            19325.1445, 27167.4688, 38181.2344, 53668.6953, 75428.9531,
+            1.0, 1.4021, 1.9692, 2.7665, 3.8873, 5.4645, 7.6816, 10.7968, 15.1781, 21.3348,
+            29.9852, 42.1538, 59.2485, 83.2750, 117.0424, 164.4989, 231.2285, 325.0069, 456.8019,
+            641.9960, 902.5009, 1268.6768, 1783.6345, 2506.8855, 3522.8044, 4952.2319, 6960.2544,
+            9781.8203, 13748.4473, 19325.1445, 27167.4688, 38181.2344, 53668.6953, 75428.9531,
         ];
         GAINS_L[num_decomps.min(33) as usize]
     }
 
     pub fn get_gain_h(num_decomps: u32, _rev: bool) -> f32 {
         static GAINS_H: [f32; 34] = [
-            1.0, 1.4425, 2.0286, 2.8525, 4.0104, 5.6381, 7.9270,
-            11.1440, 15.6658, 22.0236, 30.9537, 43.5079, 61.1495,
-            85.9350, 120.8194, 169.8440, 238.7607, 335.6575, 471.8611,
-            663.2765, 932.3842, 1310.5906, 1842.0957, 2589.3047,
-            3639.6855, 5116.5957, 7193.1211, 10112.9805, 14213.5547,
-            19979.6094, 28089.3984, 39483.7109, 55517.6484, 78048.0000,
+            1.0, 1.4425, 2.0286, 2.8525, 4.0104, 5.6381, 7.9270, 11.1440, 15.6658, 22.0236,
+            30.9537, 43.5079, 61.1495, 85.9350, 120.8194, 169.8440, 238.7607, 335.6575, 471.8611,
+            663.2765, 932.3842, 1310.5906, 1842.0957, 2589.3047, 3639.6855, 5116.5957, 7193.1211,
+            10112.9805, 14213.5547, 19979.6094, 28089.3984, 39483.7109, 55517.6484, 78048.0000,
         ];
         GAINS_H[num_decomps.min(33) as usize]
     }
@@ -1314,8 +1437,8 @@ impl ParamQcd {
         if irrev == 0 {
             if let SpqcdData::Reversible(ref data) = self.sp_qcd {
                 for i in 0..self.num_subbands.min(data.len() as u32) {
-                    let t = self.decode_spqcd(data[i as usize]) as u32
-                        + self.get_num_guard_bits() - 1;
+                    let t =
+                        self.decode_spqcd(data[i as usize]) as u32 + self.get_num_guard_bits() - 1;
                     *b = (*b).max(t);
                 }
             }
@@ -1341,13 +1464,23 @@ impl ParamQcd {
         let num_bits = if irrev == 0 {
             if let SpqcdData::Reversible(ref data) = self.sp_qcd {
                 let v = self.decode_spqcd(data[idx as usize]);
-                if v == 0 { 0u32 } else { v as u32 - 1 }
-            } else { 0 }
+                if v == 0 {
+                    0u32
+                } else {
+                    v as u32 - 1
+                }
+            } else {
+                0
+            }
         } else if irrev == 2 {
             if let SpqcdData::Irreversible(ref data) = self.sp_qcd {
                 (data[idx as usize] >> 11) as u32 - 1
-            } else { 0 }
-        } else { 0 };
+            } else {
+                0
+            }
+        } else {
+            0
+        };
         num_bits + self.get_num_guard_bits()
     }
 
@@ -1361,7 +1494,8 @@ impl ParamQcd {
         let idx = idx.min(self.num_subbands.saturating_sub(1));
         if let SpqcdData::Irreversible(ref data) = self.sp_qcd {
             let eps = data[idx as usize] >> 11;
-            let mut mantissa = ((data[idx as usize] & 0x7FF) | 0x800) as f32 * arr[subband as usize];
+            let mut mantissa =
+                ((data[idx as usize] & 0x7FF) | 0x800) as f32 * arr[subband as usize];
             mantissa /= (1u32 << 11) as f32;
             mantissa /= (1u32 << eps) as f32;
             mantissa
@@ -1371,7 +1505,10 @@ impl ParamQcd {
     }
 
     fn set_rev_quant(&mut self, num_decomps: u32, bit_depth: u32, employing_ct: bool) {
-        let b = bit_depth + if employing_ct { 1 } else { 0 };
+        // Keep one extra magnitude bit in the reversible quantization exponents so
+        // the full centered sample range (e.g. unsigned 8-bit -> [-128, 127]) is
+        // representable after the JPEG 2000 sign-magnitude conversion.
+        let b = bit_depth + if employing_ct { 1 } else { 0 } + 1;
         let ns = 1 + 3 * num_decomps;
         let mut sp = vec![0u8; ns as usize];
         let mut s = 0usize;
@@ -1571,10 +1708,12 @@ impl ParamQcd {
 
     pub fn read(&mut self, file: &mut dyn InfileBase) -> Result<()> {
         self.lqcd = read_u16_be(file).map_err(|_| OjphError::Codec {
-            code: 0x00050081, message: "error reading QCD marker".into(),
+            code: 0x00050081,
+            message: "error reading QCD marker".into(),
         })?;
         self.sqcd = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x00050082, message: "error reading QCD marker".into(),
+            code: 0x00050082,
+            message: "error reading QCD marker".into(),
         })?;
         let irrev = self.sqcd & 0x1F;
         if irrev == 0 {
@@ -1588,7 +1727,8 @@ impl ParamQcd {
             let mut data = vec![0u8; self.num_subbands as usize];
             for i in 0..self.num_subbands as usize {
                 data[i] = read_u8(file).map_err(|_| OjphError::Codec {
-                    code: 0x00050084, message: "error reading QCD marker".into(),
+                    code: 0x00050084,
+                    message: "error reading QCD marker".into(),
                 })?;
             }
             self.sp_qcd = SpqcdData::Reversible(data);
@@ -1603,13 +1743,15 @@ impl ParamQcd {
             let mut data = vec![0u16; self.num_subbands as usize];
             for i in 0..self.num_subbands as usize {
                 data[i] = read_u16_be(file).map_err(|_| OjphError::Codec {
-                    code: 0x00050087, message: "error reading QCD marker".into(),
+                    code: 0x00050087,
+                    message: "error reading QCD marker".into(),
                 })?;
             }
             self.sp_qcd = SpqcdData::Irreversible(data);
         } else {
             return Err(OjphError::Codec {
-                code: 0x00050088, message: "wrong Sqcd value in QCD marker".into(),
+                code: 0x00050088,
+                message: "wrong Sqcd value in QCD marker".into(),
             });
         }
         Ok(())
@@ -1618,19 +1760,23 @@ impl ParamQcd {
     pub fn read_qcc(&mut self, file: &mut dyn InfileBase, num_comps: u32) -> Result<()> {
         self.qcd_type = QcdType::QccMain;
         self.lqcd = read_u16_be(file).map_err(|_| OjphError::Codec {
-            code: 0x000500A1, message: "error reading QCC marker".into(),
+            code: 0x000500A1,
+            message: "error reading QCC marker".into(),
         })?;
         if num_comps < 257 {
             self.comp_idx = read_u8(file).map_err(|_| OjphError::Codec {
-                code: 0x000500A2, message: "error reading QCC marker".into(),
+                code: 0x000500A2,
+                message: "error reading QCC marker".into(),
             })? as u16;
         } else {
             self.comp_idx = read_u16_be(file).map_err(|_| OjphError::Codec {
-                code: 0x000500A3, message: "error reading QCC marker".into(),
+                code: 0x000500A3,
+                message: "error reading QCC marker".into(),
             })?;
         }
         self.sqcd = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x000500A4, message: "error reading QCC marker".into(),
+            code: 0x000500A4,
+            message: "error reading QCC marker".into(),
         })?;
         let offset: u32 = if num_comps < 257 { 4 } else { 5 };
         let irrev = self.sqcd & 0x1F;
@@ -1639,7 +1785,8 @@ impl ParamQcd {
             let mut data = vec![0u8; self.num_subbands as usize];
             for i in 0..self.num_subbands as usize {
                 data[i] = read_u8(file).map_err(|_| OjphError::Codec {
-                    code: 0x000500A6, message: "error reading QCC marker".into(),
+                    code: 0x000500A6,
+                    message: "error reading QCC marker".into(),
                 })?;
             }
             self.sp_qcd = SpqcdData::Reversible(data);
@@ -1648,13 +1795,15 @@ impl ParamQcd {
             let mut data = vec![0u16; self.num_subbands as usize];
             for i in 0..self.num_subbands as usize {
                 data[i] = read_u16_be(file).map_err(|_| OjphError::Codec {
-                    code: 0x000500A9, message: "error reading QCC marker".into(),
+                    code: 0x000500A9,
+                    message: "error reading QCC marker".into(),
                 })?;
             }
             self.sp_qcd = SpqcdData::Irreversible(data);
         } else {
             return Err(OjphError::Codec {
-                code: 0x000500AA, message: "wrong Sqcc value in QCC marker".into(),
+                code: 0x000500AA,
+                message: "wrong Sqcc value in QCC marker".into(),
             });
         }
         Ok(())
@@ -1708,7 +1857,13 @@ impl ParamCap {
         }
         self.ccap[0] &= 0xFFE0;
         let b = qcd.get_magb();
-        let bp = if b <= 8 { 0 } else if b < 28 { b - 8 } else { 13 + (b >> 2) };
+        let bp = if b <= 8 {
+            0
+        } else if b < 28 {
+            b - 8
+        } else {
+            13 + (b >> 2)
+        };
         self.ccap[0] |= bp as u16;
     }
 
@@ -1723,10 +1878,12 @@ impl ParamCap {
 
     pub fn read(&mut self, file: &mut dyn InfileBase) -> Result<()> {
         self.lcap = read_u16_be(file).map_err(|_| OjphError::Codec {
-            code: 0x00050061, message: "error reading CAP marker".into(),
+            code: 0x00050061,
+            message: "error reading CAP marker".into(),
         })?;
         self.pcap = read_u32_be(file).map_err(|_| OjphError::Codec {
-            code: 0x00050062, message: "error reading CAP marker".into(),
+            code: 0x00050062,
+            message: "error reading CAP marker".into(),
         })?;
         let count = population_count(self.pcap);
         if (self.pcap & 0x00020000) == 0 {
@@ -1737,12 +1894,14 @@ impl ParamCap {
         }
         for i in 0..count as usize {
             self.ccap[i] = read_u16_be(file).map_err(|_| OjphError::Codec {
-                code: 0x00050065, message: "error reading CAP marker".into(),
+                code: 0x00050065,
+                message: "error reading CAP marker".into(),
             })?;
         }
         if self.lcap != 6 + 2 * count as u16 {
             return Err(OjphError::Codec {
-                code: 0x00050066, message: "error in CAP marker length".into(),
+                code: 0x00050066,
+                message: "error in CAP marker length".into(),
             });
         }
         Ok(())
@@ -1766,21 +1925,36 @@ pub struct ParamSot {
 }
 
 impl ParamSot {
-    pub fn init(&mut self, payload_length: u32, tile_idx: u16,
-                tile_part_index: u8, num_tile_parts: u8) {
+    pub fn init(
+        &mut self,
+        payload_length: u32,
+        tile_idx: u16,
+        tile_part_index: u8,
+        num_tile_parts: u8,
+    ) {
         self.psot = payload_length + 12;
         self.isot = tile_idx;
         self.tp_sot = tile_part_index;
         self.tn_sot = num_tile_parts;
     }
 
-    pub fn get_tile_index(&self) -> u16 { self.isot }
-    pub fn get_payload_length(&self) -> u32 {
-        if self.psot > 0 { self.psot - 12 } else { 0 }
+    pub fn get_tile_index(&self) -> u16 {
+        self.isot
     }
-    pub fn get_tile_part_index(&self) -> u8 { self.tp_sot }
+    pub fn get_payload_length(&self) -> u32 {
+        if self.psot > 0 {
+            self.psot - 12
+        } else {
+            0
+        }
+    }
+    pub fn get_tile_part_index(&self) -> u8 {
+        self.tp_sot
+    }
     #[allow(dead_code)]
-    pub fn get_num_tile_parts(&self) -> u8 { self.tn_sot }
+    pub fn get_num_tile_parts(&self) -> u8 {
+        self.tn_sot
+    }
 
     pub fn write(&mut self, file: &mut dyn OutfileBase, payload_len: u32) -> Result<bool> {
         self.psot = payload_len + 14;
@@ -1798,37 +1972,61 @@ impl ParamSot {
         if resilient {
             let lsot = match read_u16_be(file) {
                 Ok(v) => v,
-                Err(_) => { self.clear(); return Ok(false); }
+                Err(_) => {
+                    self.clear();
+                    return Ok(false);
+                }
             };
-            if lsot != 10 { self.clear(); return Ok(false); }
+            if lsot != 10 {
+                self.clear();
+                return Ok(false);
+            }
             self.isot = match read_u16_be(file) {
                 Ok(v) => v,
-                Err(_) => { self.clear(); return Ok(false); }
+                Err(_) => {
+                    self.clear();
+                    return Ok(false);
+                }
             };
-            if self.isot == 0xFFFF { self.clear(); return Ok(false); }
+            if self.isot == 0xFFFF {
+                self.clear();
+                return Ok(false);
+            }
             self.psot = match read_u32_be(file) {
                 Ok(v) => v,
-                Err(_) => { self.clear(); return Ok(false); }
+                Err(_) => {
+                    self.clear();
+                    return Ok(false);
+                }
             };
             self.tp_sot = match read_u8(file) {
                 Ok(v) => v,
-                Err(_) => { self.clear(); return Ok(false); }
+                Err(_) => {
+                    self.clear();
+                    return Ok(false);
+                }
             };
             self.tn_sot = match read_u8(file) {
                 Ok(v) => v,
-                Err(_) => { self.clear(); return Ok(false); }
+                Err(_) => {
+                    self.clear();
+                    return Ok(false);
+                }
             };
         } else {
             let lsot = read_u16_be(file).map_err(|_| OjphError::Codec {
-                code: 0x00050091, message: "error reading SOT marker".into(),
+                code: 0x00050091,
+                message: "error reading SOT marker".into(),
             })?;
             if lsot != 10 {
                 return Err(OjphError::Codec {
-                    code: 0x00050092, message: "error in SOT length".into(),
+                    code: 0x00050092,
+                    message: "error in SOT length".into(),
                 });
             }
             self.isot = read_u16_be(file).map_err(|_| OjphError::Codec {
-                code: 0x00050093, message: "error reading SOT marker".into(),
+                code: 0x00050093,
+                message: "error reading SOT marker".into(),
             })?;
             if self.isot == 0xFFFF {
                 return Err(OjphError::Codec {
@@ -1837,21 +2035,26 @@ impl ParamSot {
                 });
             }
             self.psot = read_u32_be(file).map_err(|_| OjphError::Codec {
-                code: 0x00050095, message: "error reading SOT marker".into(),
+                code: 0x00050095,
+                message: "error reading SOT marker".into(),
             })?;
             self.tp_sot = read_u8(file).map_err(|_| OjphError::Codec {
-                code: 0x00050096, message: "error reading SOT marker".into(),
+                code: 0x00050096,
+                message: "error reading SOT marker".into(),
             })?;
             self.tn_sot = read_u8(file).map_err(|_| OjphError::Codec {
-                code: 0x00050097, message: "error reading SOT marker".into(),
+                code: 0x00050097,
+                message: "error reading SOT marker".into(),
             })?;
         }
         Ok(true)
     }
 
     fn clear(&mut self) {
-        self.isot = 0; self.psot = 0;
-        self.tp_sot = 0; self.tn_sot = 0;
+        self.isot = 0;
+        self.psot = 0;
+        self.tp_sot = 0;
+        self.tn_sot = 0;
     }
 }
 
@@ -1883,7 +2086,8 @@ pub struct ParamTlm {
 
 impl ParamTlm {
     pub fn init(&mut self, num_pairs: u32) {
-        self.pairs.resize(num_pairs as usize, TtlmPtlmPair::default());
+        self.pairs
+            .resize(num_pairs as usize, TtlmPtlmPair::default());
         self.ltlm = 4 + 6 * num_pairs as u16;
         self.ztlm = 0;
         self.stlm = 0x60;
@@ -1989,7 +2193,9 @@ impl ParamNlt {
 
     /// Returns `true` if any component has an NLT configured.
     pub fn is_any_enabled(&self) -> bool {
-        if self.enabled { return true; }
+        if self.enabled {
+            return true;
+        }
         self.children.iter().any(|c| c.enabled)
     }
 
@@ -2034,9 +2240,12 @@ impl ParamNlt {
         let mut offset = 0;
         while offset < 6 {
             let n = file.read(&mut buf[offset..])?;
-            if n == 0 { return Err(OjphError::Codec {
-                code: 0x00050141, message: "error reading NLT marker".into(),
-            }); }
+            if n == 0 {
+                return Err(OjphError::Codec {
+                    code: 0x00050141,
+                    message: "error reading NLT marker".into(),
+                });
+            }
             offset += n;
         }
         let length = u16::from_be_bytes([buf[0], buf[1]]);
@@ -2083,13 +2292,19 @@ pub struct ParamDfs {
 }
 
 impl ParamDfs {
-    pub fn exists(&self) -> bool { self.ldfs != 0 }
+    pub fn exists(&self) -> bool {
+        self.ldfs != 0
+    }
 
     #[allow(dead_code)]
     pub fn get_dfs(&self, index: i32) -> Option<&ParamDfs> {
-        if self.sdfs == index as u16 { return Some(self); }
+        if self.sdfs == index as u16 {
+            return Some(self);
+        }
         for child in &self.children {
-            if child.sdfs == index as u16 { return Some(child); }
+            if child.sdfs == index as u16 {
+                return Some(child);
+            }
         }
         None
     }
@@ -2117,19 +2332,23 @@ impl ParamDfs {
             return Ok(ok);
         }
         self.ldfs = read_u16_be(file).map_err(|_| OjphError::Codec {
-            code: 0x000500D1, message: "error reading DFS-Ldfs".into(),
+            code: 0x000500D1,
+            message: "error reading DFS-Ldfs".into(),
         })?;
         self.sdfs = read_u16_be(file).map_err(|_| OjphError::Codec {
-            code: 0x000500D2, message: "error reading DFS-Sdfs".into(),
+            code: 0x000500D2,
+            message: "error reading DFS-Sdfs".into(),
         })?;
         let l_ids = read_u8(file).map_err(|_| OjphError::Codec {
-            code: 0x000500D4, message: "error reading DFS-Ids".into(),
+            code: 0x000500D4,
+            message: "error reading DFS-Ids".into(),
         })?;
         let max_ddfs = (self.ddfs.len() * 4) as u8;
         self.ids = l_ids.min(max_ddfs);
         for i in (0..self.ids).step_by(4) {
             self.ddfs[(i / 4) as usize] = read_u8(file).map_err(|_| OjphError::Codec {
-                code: 0x000500D6, message: "error reading DFS-Ddfs".into(),
+                code: 0x000500D6,
+                message: "error reading DFS-Ddfs".into(),
             })?;
         }
         for _ in (self.ids..l_ids).step_by(4) {
@@ -2186,8 +2405,8 @@ impl CommentExchange {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::file::{MemInfile, MemOutfile};
     use crate::types::{Point, Size};
-    use crate::file::{MemOutfile, MemInfile};
 
     // -----------------------------------------------------------------
     // ParamSiz tests
@@ -2343,7 +2562,8 @@ mod tests {
     #[test]
     fn param_cod_progression_order() {
         let mut cod = ParamCod::default();
-        cod.set_progression_order("CPRL").expect("valid progression");
+        cod.set_progression_order("CPRL")
+            .expect("valid progression");
         assert_eq!(cod.get_progression_order_as_string(), "CPRL");
 
         cod.set_progression_order("lrcp").expect("case-insensitive");
@@ -2406,12 +2626,33 @@ mod tests {
         cod.set_num_decomposition(5);
 
         let mut qcd = ParamQcd::default();
-        qcd.check_validity(&siz, &cod).expect("check_validity failed");
+        qcd.check_validity(&siz, &cod)
+            .expect("check_validity failed");
 
         // After check_validity with reversible, sqcd lower 5 bits should be 0
         assert_eq!(qcd.sqcd & 0x1F, 0);
         assert!(qcd.get_num_guard_bits() >= 1);
         assert_eq!(qcd.num_subbands, 1 + 3 * 5);
+    }
+
+    #[test]
+    fn param_qcd_reversible_no_dwt_8bit_uses_kmax_8() {
+        let mut siz = ParamSiz::default();
+        siz.set_image_extent(Point::new(33, 33));
+        siz.set_tile_size(Size::new(33, 33));
+        siz.set_num_components(1);
+        siz.set_comp_info(0, Point::new(1, 1), 8, false);
+
+        let mut cod = ParamCod::default();
+        cod.set_reversible(true);
+        cod.set_num_decomposition(0);
+
+        let mut qcd = ParamQcd::default();
+        qcd.check_validity(&siz, &cod)
+            .expect("check_validity failed");
+
+        assert_eq!(qcd.get_kmax(0, 0, 0), 8);
+        assert_eq!(qcd.get_magb(), 8);
     }
 
     #[test]
@@ -2427,7 +2668,8 @@ mod tests {
         cod.set_num_decomposition(5);
 
         let mut qcd = ParamQcd::default();
-        qcd.check_validity(&siz, &cod).expect("check_validity failed");
+        qcd.check_validity(&siz, &cod)
+            .expect("check_validity failed");
 
         let mut out = MemOutfile::new();
         qcd.write(&mut out).expect("write failed");
@@ -2456,13 +2698,31 @@ mod tests {
 
     #[test]
     fn progression_order_from_str() {
-        assert_eq!(ProgressionOrder::from_str("LRCP"), Some(ProgressionOrder::LRCP));
-        assert_eq!(ProgressionOrder::from_str("RLCP"), Some(ProgressionOrder::RLCP));
-        assert_eq!(ProgressionOrder::from_str("RPCL"), Some(ProgressionOrder::RPCL));
-        assert_eq!(ProgressionOrder::from_str("PCRL"), Some(ProgressionOrder::PCRL));
-        assert_eq!(ProgressionOrder::from_str("CPRL"), Some(ProgressionOrder::CPRL));
+        assert_eq!(
+            ProgressionOrder::from_str("LRCP"),
+            Some(ProgressionOrder::LRCP)
+        );
+        assert_eq!(
+            ProgressionOrder::from_str("RLCP"),
+            Some(ProgressionOrder::RLCP)
+        );
+        assert_eq!(
+            ProgressionOrder::from_str("RPCL"),
+            Some(ProgressionOrder::RPCL)
+        );
+        assert_eq!(
+            ProgressionOrder::from_str("PCRL"),
+            Some(ProgressionOrder::PCRL)
+        );
+        assert_eq!(
+            ProgressionOrder::from_str("CPRL"),
+            Some(ProgressionOrder::CPRL)
+        );
         // case-insensitive
-        assert_eq!(ProgressionOrder::from_str("lrcp"), Some(ProgressionOrder::LRCP));
+        assert_eq!(
+            ProgressionOrder::from_str("lrcp"),
+            Some(ProgressionOrder::LRCP)
+        );
         // invalid
         assert_eq!(ProgressionOrder::from_str("INVALID"), None);
     }

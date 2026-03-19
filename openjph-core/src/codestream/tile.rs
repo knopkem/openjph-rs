@@ -3,14 +3,15 @@
 //! Port of `ojph_tile.h/cpp`. A tile is the top-level subdivision of the
 //! image. Each tile contains tile-components.
 
-use crate::types::*;
-use crate::error::{OjphError, Result};
-use crate::file::{OutfileBase, InfileBase};
-use crate::params::{ParamSiz, ParamCod, ParamQcd, ParamSot};
-use crate::params::local::markers;
-use super::tile_comp::TileComp;
-use super::codeblock::CodeblockDecState;
 use super::bitbuffer_write::BitBufferWrite;
+use super::codeblock::CodeblockDecState;
+use super::tile_comp::TileComp;
+use crate::arch::count_leading_zeros;
+use crate::error::{OjphError, Result};
+use crate::file::{InfileBase, OutfileBase};
+use crate::params::local::markers;
+use crate::params::{ParamCod, ParamQcd, ParamSiz, ParamSot};
+use crate::types::*;
 
 /// A single tile within the codestream.
 ///
@@ -27,8 +28,14 @@ pub struct Tile {
     pub num_comps: u32,
     /// Whether color transform is employed for this tile.
     pub employ_color_transform: bool,
+    /// Number of quality layers in packet parsing.
+    pub num_layers: u32,
     /// Number of tile parts.
     pub num_tileparts: u32,
+    /// Whether SOP markers may appear before packet headers.
+    pub may_use_sop: bool,
+    /// Whether packet headers are followed by EPH markers.
+    pub uses_eph: bool,
     /// SOT marker data for this tile.
     pub sot: ParamSot,
     /// Whether the tile has been fully read/written.
@@ -49,13 +56,235 @@ impl Default for Tile {
             tile_comps: Vec::new(),
             num_comps: 0,
             employ_color_transform: false,
+            num_layers: 1,
             num_tileparts: 1,
+            may_use_sop: false,
+            uses_eph: false,
             sot: ParamSot::default(),
             is_complete: false,
             cur_line: 0,
             num_lines: 0,
             skipped_res_for_recon: 0,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct PacketTagTree {
+    widths: Vec<u32>,
+    heights: Vec<u32>,
+    levels: Vec<Vec<u32>>,
+}
+
+impl PacketTagTree {
+    fn new(width: u32, height: u32, num_levels: u32, init_val: u32) -> Self {
+        let mut widths = Vec::with_capacity((num_levels + 1) as usize);
+        let mut heights = Vec::with_capacity((num_levels + 1) as usize);
+        let mut levels = Vec::with_capacity((num_levels + 1) as usize);
+
+        for lev in 0..num_levels {
+            let w = (width + (1u32 << lev) - 1) >> lev;
+            let h = (height + (1u32 << lev) - 1) >> lev;
+            widths.push(w);
+            heights.push(h);
+            levels.push(vec![init_val; (w * h) as usize]);
+        }
+
+        widths.push(1);
+        heights.push(1);
+        levels.push(vec![0u32; 1]);
+
+        Self {
+            widths,
+            heights,
+            levels,
+        }
+    }
+
+    fn get(&self, x: u32, y: u32, lev: u32) -> u32 {
+        let lev = lev as usize;
+        let idx = (x + y * self.widths[lev]) as usize;
+        self.levels[lev][idx]
+    }
+
+    fn set(&mut self, x: u32, y: u32, lev: u32, value: u32) {
+        let lev = lev as usize;
+        let idx = (x + y * self.widths[lev]) as usize;
+        self.levels[lev][idx] = value;
+    }
+
+    fn build_min_levels(&mut self, width: u32, height: u32, num_levels: u32) {
+        for lev in 1..num_levels {
+            let lev_w = (width + (1u32 << lev) - 1) >> lev;
+            let lev_h = (height + (1u32 << lev) - 1) >> lev;
+            for y in 0..lev_h {
+                for x in 0..lev_w {
+                    let child_x = x << 1;
+                    let child_y = y << 1;
+                    let child = |cx: u32, cy: u32| {
+                        if cx < self.widths[(lev - 1) as usize]
+                            && cy < self.heights[(lev - 1) as usize]
+                        {
+                            self.get(cx, cy, lev - 1)
+                        } else {
+                            0
+                        }
+                    };
+                    let t1 = child(child_x, child_y).min(child(child_x + 1, child_y));
+                    let t2 = child(child_x, child_y + 1).min(child(child_x + 1, child_y + 1));
+                    self.set(x, y, lev, t1.min(t2));
+                }
+            }
+        }
+        self.set(0, 0, num_levels, 0);
+    }
+}
+
+fn log2ceil(x: u32) -> u32 {
+    let t = 31 - count_leading_zeros(x);
+    t + u32::from((x & (x - 1)) != 0)
+}
+
+#[derive(Debug, Clone)]
+struct PacketBitReader<'a> {
+    data: &'a [u8],
+    pos: usize,
+    tmp: u8,
+    avail_bits: u32,
+    unstuff: bool,
+    bytes_left: usize,
+}
+
+impl<'a> PacketBitReader<'a> {
+    fn new(data: &'a [u8]) -> Self {
+        Self {
+            data,
+            pos: 0,
+            tmp: 0,
+            avail_bits: 0,
+            unstuff: false,
+            bytes_left: data.len(),
+        }
+    }
+
+    fn refill(&mut self) -> bool {
+        if self.bytes_left > 0 {
+            let byte = self.data[self.pos];
+            self.pos += 1;
+            self.tmp = byte;
+            self.avail_bits = 8 - u32::from(self.unstuff);
+            self.unstuff = byte == 0xFF;
+            self.bytes_left -= 1;
+            true
+        } else {
+            self.tmp = 0;
+            self.avail_bits = 8 - u32::from(self.unstuff);
+            self.unstuff = false;
+            false
+        }
+    }
+
+    fn read_bit(&mut self, err: &'static str) -> Result<u32> {
+        if self.avail_bits == 0 && !self.refill() {
+            return Err(OjphError::Codec {
+                code: 0x00060006,
+                message: err.into(),
+            });
+        }
+        self.avail_bits -= 1;
+        Ok(((self.tmp >> self.avail_bits) & 1) as u32)
+    }
+
+    fn read_bits(&mut self, mut num_bits: u32, err: &'static str) -> Result<u32> {
+        let mut bits = 0u32;
+        while num_bits > 0 {
+            if self.avail_bits == 0 && !self.refill() {
+                return Err(OjphError::Codec {
+                    code: 0x00060007,
+                    message: err.into(),
+                });
+            }
+            let tx_bits = self.avail_bits.min(num_bits);
+            bits <<= tx_bits;
+            self.avail_bits -= tx_bits;
+            num_bits -= tx_bits;
+            bits |= ((self.tmp >> self.avail_bits) as u32) & ((1u32 << tx_bits) - 1);
+        }
+        Ok(bits)
+    }
+
+    fn terminate(&mut self, uses_eph: bool) -> Result<()> {
+        if self.unstuff {
+            self.refill();
+        }
+        debug_assert!(!self.unstuff);
+        if uses_eph {
+            if self.bytes_left < 2 {
+                return Err(OjphError::Codec {
+                    code: 0x00060004,
+                    message: "truncated packet header before EPH marker".into(),
+                });
+            }
+            let eph = u16::from_be_bytes([self.data[self.pos], self.data[self.pos + 1]]);
+            if eph != markers::EPH {
+                return Err(OjphError::Codec {
+                    code: 0x00060005,
+                    message: format!("expected EPH marker (0xFF92), got 0x{:04X}", eph),
+                });
+            }
+            self.pos += 2;
+            self.bytes_left -= 2;
+        }
+        self.tmp = 0;
+        self.avail_bits = 0;
+        Ok(())
+    }
+
+    fn skip_optional_sop(&mut self) -> Result<()> {
+        debug_assert_eq!(self.avail_bits, 0);
+        debug_assert!(!self.unstuff);
+        if self.bytes_left < 2 {
+            return Ok(());
+        }
+
+        let marker = u16::from_be_bytes([self.data[self.pos], self.data[self.pos + 1]]);
+        if marker != markers::SOP {
+            return Ok(());
+        }
+
+        if self.bytes_left < 6 {
+            return Err(OjphError::Codec {
+                code: 0x00060008,
+                message: "packet truncated inside SOP marker".into(),
+            });
+        }
+
+        let lsop = u16::from_be_bytes([self.data[self.pos + 2], self.data[self.pos + 3]]);
+        if lsop != 4 {
+            return Err(OjphError::Codec {
+                code: 0x00060009,
+                message: format!("unexpected SOP length {lsop}, expected 4"),
+            });
+        }
+
+        self.pos += 6;
+        self.bytes_left -= 6;
+        Ok(())
+    }
+
+    fn read_chunk(&mut self, num_bytes: usize) -> Vec<u8> {
+        debug_assert_eq!(self.avail_bits, 0);
+        debug_assert!(!self.unstuff);
+        let bytes = num_bytes.min(self.bytes_left);
+        let mut out = vec![0u8; num_bytes];
+        out[..bytes].copy_from_slice(&self.data[self.pos..self.pos + bytes]);
+        self.pos += bytes;
+        self.bytes_left -= bytes;
+        out
+    }
+
+    fn consumed(&self) -> usize {
+        self.data.len() - self.bytes_left
     }
 }
 
@@ -66,7 +295,7 @@ impl Tile {
         tile_rect: Rect,
         siz: &ParamSiz,
         cod: &ParamCod,
-        _qcd: &ParamQcd,
+        qcd: &ParamQcd,
         skipped_res_for_recon: u32,
     ) -> Self {
         let num_comps = siz.get_num_components() as u32;
@@ -88,6 +317,7 @@ impl Tile {
             );
 
             let cp = cod.get_coc(c);
+            let qp = qcd.get_qcc(c);
             let num_decomps = cp.get_num_decompositions() as u32;
             let log_block_dims = cp.get_log_block_dims();
 
@@ -97,7 +327,7 @@ impl Tile {
                 log_pp.push(cp.get_log_precinct_size(r));
             }
 
-            tile_comps.push(TileComp::new(
+            let mut tile_comp = TileComp::new(
                 c,
                 comp_rect,
                 num_decomps,
@@ -106,7 +336,21 @@ impl Tile {
                 cp.is_reversible(),
                 siz.get_bit_depth(c),
                 siz.is_signed(c),
-            ));
+            );
+            for res in &mut tile_comp.resolutions {
+                for sb in &mut res.subbands {
+                    let subband_num = sb.band_type as u32;
+                    sb.k_max = qp.get_kmax(num_decomps, sb.resolution_num, subband_num);
+                    sb.reversible = cp.is_reversible();
+                    if !sb.reversible {
+                        let d = qp.get_irrev_delta(num_decomps, sb.resolution_num, subband_num);
+                        sb.delta = d / ((1u32 << (31 - sb.k_max)) as f32);
+                    } else {
+                        sb.delta = 1.0;
+                    }
+                }
+            }
+            tile_comps.push(tile_comp);
         }
 
         // Compute number of tile lines from highest resolution
@@ -117,19 +361,24 @@ impl Tile {
             tile_rect.siz.h
         };
 
-        Self {
+        let tile = Self {
             tile_idx,
             tile_rect,
             tile_comps,
             num_comps,
             employ_color_transform: cod.is_employing_color_transform(),
+            num_layers: cod.get_num_layers() as u32,
             num_tileparts: 1,
+            may_use_sop: cod.packets_may_use_sop(),
+            uses_eph: cod.packets_use_eph(),
             sot: ParamSot::default(),
             is_complete: false,
             cur_line: 0,
             num_lines,
             skipped_res_for_recon,
-        }
+        };
+
+        tile
     }
 
     /// Width of this tile.
@@ -165,7 +414,9 @@ impl Tile {
         }
         if tilepart_div & super::super::params::local::TILEPART_RESOLUTIONS != 0 {
             // Use the max num_resolutions across all components
-            let max_res = self.tile_comps.iter()
+            let max_res = self
+                .tile_comps
+                .iter()
                 .map(|tc| tc.num_resolutions)
                 .max()
                 .unwrap_or(1);
@@ -180,10 +431,9 @@ impl Tile {
 
     /// Push a line of image data to the specified component.
     pub fn push_line(&mut self, line: &[i32], comp_num: u32) -> Result<()> {
-        let tc = self.tile_comps.get_mut(comp_num as usize)
-            .ok_or_else(|| OjphError::InvalidParam(
-                format!("component {} out of range", comp_num)
-            ))?;
+        let tc = self.tile_comps.get_mut(comp_num as usize).ok_or_else(|| {
+            OjphError::InvalidParam(format!("component {} out of range", comp_num))
+        })?;
         tc.push_line(line);
         Ok(())
     }
@@ -223,8 +473,10 @@ impl Tile {
     /// Build all packets for this tile in LRCP order.
     fn build_all_packets(&self) -> Result<Vec<u8>> {
         let mut data = Vec::new();
-        let num_layers = 1u32; // single quality layer
-        let max_res = self.tile_comps.iter()
+        let num_layers = self.num_layers;
+        let max_res = self
+            .tile_comps
+            .iter()
             .map(|tc| tc.num_resolutions)
             .max()
             .unwrap_or(1);
@@ -253,74 +505,139 @@ impl Tile {
     fn write_packet(res: &super::resolution::Resolution) -> Result<Vec<u8>> {
         let mut header = BitBufferWrite::new();
         let mut body: Vec<u8> = Vec::new();
-
-        // Check if any codeblock has data
-        let has_any_data = res.subbands.iter().any(|sb| {
-            sb.codeblocks.iter().any(|cb| {
-                cb.enc_state.as_ref().map_or(false, |s| s.has_data)
-            })
-        });
-
-        if !has_any_data {
-            // Empty packet: single 0 bit, then byte-align
-            header.write(0, 1);
-            header.finalize();
-            return Ok(header.into_data());
-        }
-
-        // Non-empty packet
-        header.write(1, 1);
+        let mut packet_started = false;
+        let mut skipped_empty_subbands = 0u32;
 
         for sb in &res.subbands {
-            for cb in &sb.codeblocks {
-                let enc = match &cb.enc_state {
-                    Some(e) => e,
-                    None => {
-                        // Not included
-                        header.write(0, 1); // inclusion = not included
+            if sb.is_empty() || sb.num_blocks_x == 0 || sb.num_blocks_y == 0 {
+                continue;
+            }
+
+            let num_levels = 1 + log2ceil(sb.num_blocks_x).max(log2ceil(sb.num_blocks_y));
+            let mut inc_tag = PacketTagTree::new(sb.num_blocks_x, sb.num_blocks_y, num_levels, 255);
+            let mut inc_flags = PacketTagTree::new(sb.num_blocks_x, sb.num_blocks_y, num_levels, 0);
+            let mut mmsb_tag = PacketTagTree::new(sb.num_blocks_x, sb.num_blocks_y, num_levels, 255);
+            let mut mmsb_flags =
+                PacketTagTree::new(sb.num_blocks_x, sb.num_blocks_y, num_levels, 0);
+
+            for y in 0..sb.num_blocks_y {
+                for x in 0..sb.num_blocks_x {
+                    let cb_idx = (y * sb.num_blocks_x + x) as usize;
+                    let enc = sb.codeblocks[cb_idx].enc_state.as_ref();
+                    let empty = enc.is_none_or(|e| !e.has_data || e.num_passes == 0);
+                    inc_tag.set(x, y, 0, u32::from(empty));
+                    mmsb_tag.set(x, y, 0, enc.map_or(0, |e| e.missing_msbs));
+                }
+            }
+            inc_tag.build_min_levels(sb.num_blocks_x, sb.num_blocks_y, num_levels);
+            mmsb_tag.build_min_levels(sb.num_blocks_x, sb.num_blocks_y, num_levels);
+            inc_flags.set(0, 0, num_levels, 0);
+            mmsb_flags.set(0, 0, num_levels, 0);
+
+            if inc_tag.get(0, 0, num_levels - 1) != 0 {
+                if packet_started {
+                    header.write(0, 1);
+                } else {
+                    skipped_empty_subbands += 1;
+                }
+                continue;
+            }
+
+            if !packet_started {
+                header.write(1, 1);
+                if skipped_empty_subbands > 0 {
+                    header.write(0, skipped_empty_subbands);
+                }
+                packet_started = true;
+            }
+
+            for y in 0..sb.num_blocks_y {
+                for x in 0..sb.num_blocks_x {
+                    let cb_idx = (y * sb.num_blocks_x + x) as usize;
+                    let cb = &sb.codeblocks[cb_idx];
+                    let enc = cb.enc_state.as_ref();
+
+                    for cur_lev in (1..=num_levels).rev() {
+                        let levm1 = cur_lev - 1;
+                        if inc_flags.get(x >> levm1, y >> levm1, levm1) == 0 {
+                            let skipped = inc_tag.get(x >> levm1, y >> levm1, levm1)
+                                - inc_tag.get(x >> cur_lev, y >> cur_lev, cur_lev);
+                            debug_assert!(skipped <= 1);
+                            header.write(1 - skipped, 1);
+                            inc_flags.set(x >> levm1, y >> levm1, levm1, 1);
+                        }
+                        if inc_tag.get(x >> levm1, y >> levm1, levm1) > 0 {
+                            break;
+                        }
+                    }
+
+                    let Some(enc) = enc else {
+                        continue;
+                    };
+                    if !enc.has_data || enc.num_passes == 0 {
                         continue;
                     }
-                };
 
-                if !enc.has_data {
-                    header.write(0, 1); // inclusion = not included
-                    continue;
-                }
+                    for cur_lev in (1..=num_levels).rev() {
+                        let levm1 = cur_lev - 1;
+                        if mmsb_flags.get(x >> levm1, y >> levm1, levm1) == 0 {
+                            let num_zeros = mmsb_tag.get(x >> levm1, y >> levm1, levm1)
+                                - mmsb_tag.get(x >> cur_lev, y >> cur_lev, cur_lev);
+                            for _ in 0..num_zeros {
+                                header.write(0, 1);
+                            }
+                            header.write(1, 1);
+                            mmsb_flags.set(x >> levm1, y >> levm1, levm1, 1);
+                        }
+                    }
 
-                // Inclusion: included at this layer (tag tree value=0)
-                // For a single-node tag tree, just write 1
-                header.write(1, 1);
+                    match enc.num_passes {
+                        1 => header.write(0, 1),
+                        2 => header.write(0b10, 2),
+                        3 => header.write(0b1100, 4),
+                        other => {
+                            return Err(OjphError::Codec {
+                                code: 0x00060020,
+                                message: format!(
+                                    "packet writer does not yet support {} coding passes",
+                                    other
+                                ),
+                            })
+                        }
+                    }
 
-                // Zero bitplanes: code missing_msbs as (missing_msbs) zeros + 1
-                for _ in 0..enc.missing_msbs {
+                    let bits1 = 32 - enc.pass1_bytes.leading_zeros();
+                    let extra_bit = u32::from(enc.num_passes > 2);
+                    let bits2 = if enc.num_passes > 1 {
+                        32 - enc.pass2_bytes.leading_zeros()
+                    } else {
+                        0
+                    };
+                    let bits = bits1.max(bits2.saturating_sub(extra_bit)).saturating_sub(3);
+                    for _ in 0..bits {
+                        header.write(1, 1);
+                    }
                     header.write(0, 1);
-                }
-                header.write(1, 1);
 
-                // Number of coding passes (1 pass = "0")
-                header.write(0, 1);
+                    header.write(enc.pass1_bytes, bits + 3);
+                    if enc.num_passes > 1 {
+                        header.write(enc.pass2_bytes, bits + 3 + extra_bit);
+                    }
 
-                // Pass length coding with Lblock
-                let len = enc.pass1_bytes;
-                let lblock = 3u32;
-                let bits_needed = if len > 0 { 32 - len.leading_zeros() } else { 1 };
-                let delta = if bits_needed > lblock { bits_needed - lblock } else { 0 };
-
-                // Code delta as unary: (delta) ones + 0
-                for _ in 0..delta {
-                    header.write(1, 1);
-                }
-                header.write(0, 1);
-
-                // Code length in (lblock + delta) bits
-                header.write(len, lblock + delta);
-
-                // Append coded data to body
-                let data_len = enc.pass1_bytes as usize;
-                if data_len <= cb.coded_data.len() {
+                    let data_len = (enc.pass1_bytes + enc.pass2_bytes) as usize;
+                    if data_len > cb.coded_data.len() {
+                        return Err(OjphError::Codec {
+                            code: 0x00060021,
+                            message: "encoded codeblock body shorter than packet header length".into(),
+                        });
+                    }
                     body.extend_from_slice(&cb.coded_data[..data_len]);
                 }
             }
+        }
+
+        if !packet_started {
+            header.write(0, 1);
         }
 
         header.finalize();
@@ -366,7 +683,9 @@ impl Tile {
             let mut read_so_far = 0;
             while read_so_far < data_len {
                 let n = file.read(&mut tile_data[read_so_far..])?;
-                if n == 0 { break; }
+                if n == 0 {
+                    break;
+                }
                 read_so_far += n;
             }
         }
@@ -391,8 +710,10 @@ impl Tile {
     /// Parse all packets from a tile data buffer (LRCP order).
     fn parse_all_packets(&mut self, data: &[u8]) -> Result<()> {
         let mut pos = 0usize;
-        let num_layers = 1u32;
-        let max_res = self.tile_comps.iter()
+        let num_layers = self.num_layers;
+        let max_res = self
+            .tile_comps
+            .iter()
             .map(|tc| tc.num_resolutions)
             .max()
             .unwrap_or(1);
@@ -422,49 +743,17 @@ impl Tile {
         if data.is_empty() {
             return Ok(0);
         }
-
-        // Simple bit reader that reads one bit at a time from MSB
-        let mut byte_pos = 0usize;
-        let mut bit_pos = 8u32; // bits remaining in current byte
-        let mut cur_byte = 0u8;
-        let mut unstuff = false;
-
-        let mut read_bit = |byte_pos: &mut usize, bit_pos: &mut u32,
-                            cur_byte: &mut u8, unstuff: &mut bool| -> u32 {
-            if *bit_pos == 0 || *byte_pos == 0 && *bit_pos == 8 {
-                if *byte_pos < data.len() {
-                    *cur_byte = data[*byte_pos];
-                    *byte_pos += 1;
-                    *bit_pos = if *unstuff { 7 } else { 8 };
-                    *unstuff = *cur_byte == 0xFF;
-                } else {
-                    return 0;
-                }
-            }
-            *bit_pos -= 1;
-            ((*cur_byte >> *bit_pos) & 1) as u32
-        };
-
-        let mut read_bits = |n: u32, bp: &mut usize, bitp: &mut u32,
-                             cb: &mut u8, us: &mut bool| -> u32 {
-            let mut val = 0u32;
-            for _ in 0..n {
-                val = (val << 1) | read_bit(bp, bitp, cb, us);
-            }
-            val
-        };
-
-        // Non-empty indicator
-        let non_empty = read_bit(&mut byte_pos, &mut bit_pos, &mut cur_byte, &mut unstuff);
-        if non_empty == 0 {
-            return Ok(byte_pos);
+        let mut reader = PacketBitReader::new(data);
+        if self.may_use_sop {
+            reader.skip_optional_sop()?;
         }
 
         // Collect codeblock info for body parsing
         struct CbInfo {
             sb_idx: usize,
             cb_idx: usize,
-            pass_len: u32,
+            pass1_len: u32,
+            pass2_len: u32,
             missing_msbs: u32,
             num_passes: u32,
         }
@@ -472,89 +761,166 @@ impl Tile {
 
         let tc = &self.tile_comps[comp as usize];
         let res = &tc.resolutions[res_num as usize];
-        let num_subbands = res.subbands.len();
+        let mut saw_non_empty_packet = false;
+        let mut packet_is_empty = false;
 
-        for sb_idx in 0..num_subbands {
-            let sb = &res.subbands[sb_idx];
-            for cb_idx in 0..sb.codeblocks.len() {
-                let included = read_bit(&mut byte_pos, &mut bit_pos, &mut cur_byte, &mut unstuff);
-                if included == 0 {
-                    continue;
+        for (sb_idx, sb) in res.subbands.iter().enumerate() {
+            if sb.is_empty() || sb.num_blocks_x == 0 || sb.num_blocks_y == 0 {
+                continue;
+            }
+
+            if !saw_non_empty_packet {
+                let bit = reader.read_bit("error reading from packet header p0")?;
+                if bit == 0 {
+                    packet_is_empty = true;
+                    break;
                 }
+                saw_non_empty_packet = true;
+            }
 
-                // Read zero bitplanes (unary: zeros then 1)
-                let mut missing_msbs = 0u32;
-                loop {
-                    let bit = read_bit(&mut byte_pos, &mut bit_pos, &mut cur_byte, &mut unstuff);
-                    if bit == 1 { break; }
-                    missing_msbs += 1;
-                }
+            let num_levels = 1 + log2ceil(sb.num_blocks_x).max(log2ceil(sb.num_blocks_y));
+            let mut inc_tag = PacketTagTree::new(sb.num_blocks_x, sb.num_blocks_y, num_levels, 0);
+            let mut inc_flags = PacketTagTree::new(sb.num_blocks_x, sb.num_blocks_y, num_levels, 0);
+            let mut mmsb_tag = PacketTagTree::new(sb.num_blocks_x, sb.num_blocks_y, num_levels, 0);
+            let mut mmsb_flags =
+                PacketTagTree::new(sb.num_blocks_x, sb.num_blocks_y, num_levels, 0);
 
-                // Read number of coding passes
-                let pass_bit = read_bit(&mut byte_pos, &mut bit_pos, &mut cur_byte, &mut unstuff);
-                let num_passes = if pass_bit == 0 {
-                    1u32
-                } else {
-                    let bit2 = read_bit(&mut byte_pos, &mut bit_pos, &mut cur_byte, &mut unstuff);
-                    if bit2 == 0 { 2 } else {
-                        let extra = read_bits(2, &mut byte_pos, &mut bit_pos, &mut cur_byte, &mut unstuff);
-                        3 + extra
+            for y in 0..sb.num_blocks_y {
+                for x in 0..sb.num_blocks_x {
+                    let cb_idx = (y * sb.num_blocks_x + x) as usize;
+
+                    let mut empty_cb = false;
+                    for cl in (1..=num_levels).rev() {
+                        let cur_lev = cl - 1;
+                        empty_cb = inc_tag.get(x >> cur_lev, y >> cur_lev, cur_lev) == 1;
+                        if empty_cb {
+                            break;
+                        }
+                        if inc_flags.get(x >> cur_lev, y >> cur_lev, cur_lev) == 0 {
+                            let bit = reader.read_bit("error reading from packet header p1")?;
+                            empty_cb = bit == 0;
+                            inc_tag.set(x >> cur_lev, y >> cur_lev, cur_lev, 1 - bit);
+                            inc_flags.set(x >> cur_lev, y >> cur_lev, cur_lev, 1);
+                        }
+                        if empty_cb {
+                            break;
+                        }
                     }
-                };
 
-                // Read pass length: delta_lblock (unary) + length
-                let mut lblock = 3u32;
-                loop {
-                    let bit = read_bit(&mut byte_pos, &mut bit_pos, &mut cur_byte, &mut unstuff);
-                    if bit == 0 { break; }
-                    lblock += 1;
+                    if empty_cb {
+                        continue;
+                    }
+
+                    let mut missing_msbs = 0u32;
+                    for levp1 in (1..=num_levels).rev() {
+                        let cur_lev = levp1 - 1;
+                        missing_msbs = mmsb_tag.get(x >> levp1, y >> levp1, levp1);
+                        if mmsb_flags.get(x >> cur_lev, y >> cur_lev, cur_lev) == 0 {
+                            let mut bit = 0u32;
+                            while bit == 0 {
+                                bit = reader.read_bit("error reading from packet header p2")?;
+                                missing_msbs += 1 - bit;
+                            }
+                            mmsb_tag.set(x >> cur_lev, y >> cur_lev, cur_lev, missing_msbs);
+                            mmsb_flags.set(x >> cur_lev, y >> cur_lev, cur_lev, 1);
+                        }
+                    }
+
+                    let pass_bit = reader.read_bit("error reading from packet header p3")?;
+                    let mut num_passes = if pass_bit == 0 {
+                        1u32
+                    } else {
+                        let bit2 = reader.read_bit("error reading from packet header p4")?;
+                        if bit2 == 0 {
+                            2
+                        } else {
+                            let extra =
+                                reader.read_bits(2, "error reading from packet header p5")?;
+                            let mut passes = 3 + extra;
+                            if extra == 3 {
+                                let extra5 =
+                                    reader.read_bits(5, "error reading from packet header p6")?;
+                                passes = 6 + extra5;
+                                if extra5 == 31 {
+                                    let extra7 = reader
+                                        .read_bits(7, "error reading from packet header p7")?;
+                                    passes = 37 + extra7;
+                                }
+                            }
+                            passes
+                        }
+                    };
+
+                    let num_phld_passes = (num_passes - 1) / 3;
+                    missing_msbs += num_phld_passes;
+                    num_passes -= num_phld_passes * 3;
+
+                    let mut lblock = 3u32;
+                    loop {
+                        let bit = reader.read_bit("error reading from packet header p8")?;
+                        if bit == 0 {
+                            break;
+                        }
+                        lblock += 1;
+                    }
+
+                    let pass1_len = reader.read_bits(
+                        lblock + 31 - count_leading_zeros(num_phld_passes + 1),
+                        "error reading from packet header p9",
+                    )?;
+                    let mut pass2_len = 0u32;
+                    if num_passes > 1 {
+                        pass2_len = reader.read_bits(
+                            lblock + if num_passes > 2 { 1 } else { 0 },
+                            "error reading from packet header p10",
+                        )?;
+                    }
+
+                    cb_infos.push(CbInfo {
+                        sb_idx,
+                        cb_idx,
+                        pass1_len,
+                        pass2_len,
+                        missing_msbs,
+                        num_passes,
+                    });
                 }
-
-                let pass_len = read_bits(lblock, &mut byte_pos, &mut bit_pos, &mut cur_byte, &mut unstuff);
-
-                cb_infos.push(CbInfo {
-                    sb_idx,
-                    cb_idx,
-                    pass_len,
-                    missing_msbs,
-                    num_passes,
-                });
             }
         }
 
-        // Body starts at the current byte_pos (header was byte-stuffed and padded)
-        let mut body_offset = byte_pos;
+        if !saw_non_empty_packet && !packet_is_empty {
+            let _ = reader.read_bit("error reading from packet header p11")?;
+        }
+
+        reader.terminate(self.uses_eph)?;
+
+        if packet_is_empty {
+            return Ok(reader.consumed());
+        }
+
         for info in &cb_infos {
-            let len = info.pass_len as usize;
-            let coded_data = if body_offset + len <= data.len() {
-                data[body_offset..body_offset + len].to_vec()
-            } else {
-                let available = data.len().saturating_sub(body_offset);
-                let mut d = vec![0u8; len];
-                let copy = available.min(len);
-                d[..copy].copy_from_slice(&data[body_offset..body_offset + copy]);
-                d
-            };
-            body_offset += len;
+            let len = (info.pass1_len + info.pass2_len) as usize;
+            let coded_data = reader.read_chunk(len);
 
             let tc = &mut self.tile_comps[comp as usize];
             let sb = &mut tc.resolutions[res_num as usize].subbands[info.sb_idx];
             let cb = &mut sb.codeblocks[info.cb_idx];
             cb.coded_data = coded_data;
             cb.dec_state = Some(CodeblockDecState {
-                pass1_len: info.pass_len,
-                pass2_len: 0,
+                pass1_len: info.pass1_len,
+                pass2_len: info.pass2_len,
                 num_passes: info.num_passes,
                 missing_msbs: info.missing_msbs,
             });
         }
 
-        Ok(body_offset)
+        Ok(reader.consumed())
     }
 
     /// Pull a decoded line for the given component.
     pub fn pull_line(&mut self, comp_num: u32) -> Option<Vec<i32>> {
-        self.tile_comps.get_mut(comp_num as usize)
+        self.tile_comps
+            .get_mut(comp_num as usize)
             .and_then(|tc| tc.pull_line())
     }
 }

@@ -65,7 +65,9 @@ impl RawlReader {
 }
 
 impl ImageReader for RawlReader {
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 
     fn open(&mut self, filename: &str) -> anyhow::Result<()> {
         let file = File::open(filename)
@@ -75,7 +77,10 @@ impl ImageReader for RawlReader {
     }
 
     fn read_line(&mut self, _comp_num: u32) -> anyhow::Result<&[i32]> {
-        let reader = self.reader.as_mut().ok_or_else(|| anyhow::anyhow!("File not open"))?;
+        let reader = self
+            .reader
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("File not open"))?;
         let w = self.width as usize;
         let bps = self.bytes_per_sample as usize;
         let byte_count = w * bps;
@@ -202,12 +207,7 @@ impl RawlWriter {
     }
 
     /// Configure with signedness (must be called before open).
-    pub fn configure_with_sign(
-        &mut self,
-        is_signed: bool,
-        bit_depth: u32,
-        width: u32,
-    ) {
+    pub fn configure_with_sign(&mut self, is_signed: bool, bit_depth: u32, width: u32) {
         self.is_signed = is_signed;
         self.bit_depth = bit_depth;
         self.width = width;
@@ -226,7 +226,9 @@ impl RawlWriter {
 }
 
 impl ImageWriter for RawlWriter {
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 
     fn configure(
         &mut self,
@@ -247,7 +249,10 @@ impl ImageWriter for RawlWriter {
     }
 
     fn write_line(&mut self, _comp_num: u32, data: &[i32]) -> anyhow::Result<()> {
-        let writer = self.writer.as_mut().ok_or_else(|| anyhow::anyhow!("File not open"))?;
+        let writer = self
+            .writer
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("File not open"))?;
         let w = self.width as usize;
         let bps = self.bytes_per_sample as usize;
 

@@ -180,7 +180,10 @@ pub struct MsePaeResult {
 /// Panics if the images do not match in dimensions, format, bit depth,
 /// signedness, or number of components.
 pub fn find_mse_pae(img1: &ImgInfo, img2: &ImgInfo) -> Vec<MsePaeResult> {
-    assert_eq!(img1.num_comps, img2.num_comps, "mismatching number of components");
+    assert_eq!(
+        img1.num_comps, img2.num_comps,
+        "mismatching number of components"
+    );
     assert_eq!(img1.format, img2.format, "mismatching color formats");
     assert_eq!(img1.width, img2.width, "mismatching widths");
     assert_eq!(img1.height, img2.height, "mismatching heights");
@@ -235,7 +238,10 @@ pub fn find_mse_pae(img1: &ImgInfo, img2: &ImgInfo) -> Vec<MsePaeResult> {
 /// For signed components, applies the NLT bias: negative values are mapped as
 /// `−|v| − (2^(B−1) + 1)` before comparison.
 pub fn find_nlt_mse_pae(img1: &ImgInfo, img2: &ImgInfo) -> Vec<MsePaeResult> {
-    assert_eq!(img1.num_comps, img2.num_comps, "mismatching number of components");
+    assert_eq!(
+        img1.num_comps, img2.num_comps,
+        "mismatching number of components"
+    );
     assert_eq!(img1.format, img2.format, "mismatching color formats");
     assert_eq!(img1.width, img2.width, "mismatching widths");
     assert_eq!(img1.height, img2.height, "mismatching heights");
@@ -262,7 +268,11 @@ pub fn find_nlt_mse_pae(img1: &ImgInfo, img2: &ImgInfo) -> Vec<MsePaeResult> {
                     let mut b = img2.comps[c][idx];
                     a = if a >= 0 { a } else { -a - bias };
                     b = if b >= 0 { b } else { -b - bias };
-                    let err = if a > b { (a - b) as u32 } else { (b - a) as u32 };
+                    let err = if a > b {
+                        (a - b) as u32
+                    } else {
+                        (b - a) as u32
+                    };
                     lpae = lpae.max(err);
                     se += (err as f64) * (err as f64);
                 }
@@ -332,7 +342,10 @@ pub fn load_ppm(filename: &str) -> std::io::Result<ImgInfo> {
 
     // Read magic number
     if data.len() < 2 {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "file too short"));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "file too short",
+        ));
     }
     let magic = [data[0], data[1]];
     pos = 2;
@@ -446,12 +459,26 @@ mod tests {
     #[test]
     fn mse_pae_multi_component() {
         let img1 = ImgInfo::from_samples(
-            2, 2, 8, false,
-            vec![vec![10, 20, 30, 40], vec![0, 0, 0, 0], vec![255, 255, 255, 255]],
+            2,
+            2,
+            8,
+            false,
+            vec![
+                vec![10, 20, 30, 40],
+                vec![0, 0, 0, 0],
+                vec![255, 255, 255, 255],
+            ],
         );
         let img2 = ImgInfo::from_samples(
-            2, 2, 8, false,
-            vec![vec![10, 20, 30, 40], vec![1, 1, 1, 1], vec![254, 254, 254, 254]],
+            2,
+            2,
+            8,
+            false,
+            vec![
+                vec![10, 20, 30, 40],
+                vec![1, 1, 1, 1],
+                vec![254, 254, 254, 254],
+            ],
         );
         let results = find_mse_pae(&img1, &img2);
         assert_eq!(results.len(), 3);

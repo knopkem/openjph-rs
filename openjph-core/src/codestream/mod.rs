@@ -24,19 +24,19 @@
 
 pub mod bitbuffer_read;
 pub mod bitbuffer_write;
-pub(crate) mod local;
-pub(crate) mod tile;
-pub(crate) mod tile_comp;
-pub(crate) mod resolution;
-pub(crate) mod subband;
-pub(crate) mod precinct;
 pub(crate) mod codeblock;
 pub(crate) mod codeblock_fun;
+pub(crate) mod local;
+pub(crate) mod precinct;
+pub(crate) mod resolution;
 pub(crate) mod simd;
+pub(crate) mod subband;
+pub(crate) mod tile;
+pub(crate) mod tile_comp;
 
 use crate::error::Result;
-use crate::file::{OutfileBase, InfileBase};
-use crate::params::{ParamSiz, ParamCod, ParamQcd, ParamNlt, CommentExchange};
+use crate::file::{InfileBase, OutfileBase};
+use crate::params::{CommentExchange, ParamCod, ParamNlt, ParamQcd, ParamSiz};
 
 /// The main codestream interface for encoding and decoding HTJ2K images.
 ///
@@ -201,6 +201,11 @@ impl Codestream {
         self.inner.request_tlm_marker(needed);
     }
 
+    #[cfg(test)]
+    pub(crate) fn debug_inner(&self) -> &local::CodestreamLocal {
+        &self.inner
+    }
+
     /// Restricts the number of resolution levels used during decoding.
     ///
     /// `skipped_res_for_data` controls how many resolution levels are
@@ -211,7 +216,8 @@ impl Codestream {
         skipped_res_for_data: u32,
         skipped_res_for_recon: u32,
     ) {
-        self.inner.restrict_input_resolution(skipped_res_for_data, skipped_res_for_recon);
+        self.inner
+            .restrict_input_resolution(skipped_res_for_data, skipped_res_for_recon);
     }
 
     // ----- Write path -----

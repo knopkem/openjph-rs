@@ -3,11 +3,11 @@
 //! Port of `ojph_codestream_local.h/cpp`. Contains the internal codestream
 //! state machine that manages tiles, memory allocation, and I/O.
 
-use crate::types::*;
 use crate::error::{OjphError, Result};
-use crate::file::{OutfileBase, InfileBase};
-use crate::params::local::*;
+use crate::file::{InfileBase, OutfileBase};
 use crate::mem::LineBuf;
+use crate::params::local::*;
+use crate::types::*;
 
 use super::tile::Tile;
 
@@ -96,16 +96,36 @@ impl CodestreamLocal {
 
     // ----- Accessors -----
 
-    pub fn access_siz(&self) -> &ParamSiz { &self.siz }
-    pub fn access_siz_mut(&mut self) -> &mut ParamSiz { &mut self.siz }
-    pub fn access_cod(&self) -> &ParamCod { &self.cod }
-    pub fn access_cod_mut(&mut self) -> &mut ParamCod { &mut self.cod }
-    pub fn access_qcd(&self) -> &ParamQcd { &self.qcd }
-    pub fn access_qcd_mut(&mut self) -> &mut ParamQcd { &mut self.qcd }
-    pub fn access_nlt(&self) -> &ParamNlt { &self.nlt }
-    pub fn access_nlt_mut(&mut self) -> &mut ParamNlt { &mut self.nlt }
-    pub fn is_planar(&self) -> bool { self.planar != 0 }
-    pub fn is_resilient(&self) -> bool { self.resilient }
+    pub fn access_siz(&self) -> &ParamSiz {
+        &self.siz
+    }
+    pub fn access_siz_mut(&mut self) -> &mut ParamSiz {
+        &mut self.siz
+    }
+    pub fn access_cod(&self) -> &ParamCod {
+        &self.cod
+    }
+    pub fn access_cod_mut(&mut self) -> &mut ParamCod {
+        &mut self.cod
+    }
+    pub fn access_qcd(&self) -> &ParamQcd {
+        &self.qcd
+    }
+    pub fn access_qcd_mut(&mut self) -> &mut ParamQcd {
+        &mut self.qcd
+    }
+    pub fn access_nlt(&self) -> &ParamNlt {
+        &self.nlt
+    }
+    pub fn access_nlt_mut(&mut self) -> &mut ParamNlt {
+        &mut self.nlt
+    }
+    pub fn is_planar(&self) -> bool {
+        self.planar != 0
+    }
+    pub fn is_resilient(&self) -> bool {
+        self.resilient
+    }
 
     // ----- Configuration -----
 
@@ -115,7 +135,10 @@ impl CodestreamLocal {
 
     pub fn set_profile(&mut self, s: &str) -> Result<()> {
         match ProfileNum::from_str(s) {
-            Some(p) => { self.profile = p as i32; Ok(()) }
+            Some(p) => {
+                self.profile = p as i32;
+                Ok(())
+            }
             None => Err(OjphError::InvalidParam(format!("unknown profile: {}", s))),
         }
     }
@@ -216,7 +239,9 @@ impl CodestreamLocal {
 
         // Write TLM if needed
         if self.need_tlm {
-            let total_tps: u32 = self.tiles.iter()
+            let total_tps: u32 = self
+                .tiles
+                .iter()
                 .map(|t| t.compute_num_tileparts(self.tilepart_div))
                 .sum();
             self.tlm.init(total_tps);
@@ -334,12 +359,16 @@ impl CodestreamLocal {
             if idx as usize >= self.tiles.len() {
                 return Ok(None); // all tile rows done
             }
-            let lines_so_far = self.tiles[idx as usize].tile_comps
+            let lines_so_far = self.tiles[idx as usize]
+                .tile_comps
                 .get(comp_num as usize)
-                .map(|t| t.lines.len() as u32).unwrap_or(0);
-            let comp_h = self.tiles[idx as usize].tile_comps
+                .map(|t| t.lines.len() as u32)
+                .unwrap_or(0);
+            let comp_h = self.tiles[idx as usize]
+                .tile_comps
                 .get(comp_num as usize)
-                .map(|t| t.height()).unwrap_or(0);
+                .map(|t| t.height())
+                .unwrap_or(0);
             if lines_so_far < comp_h {
                 break;
             }
@@ -355,8 +384,11 @@ impl CodestreamLocal {
                 let tc_h = tc.map(|t| t.height()).unwrap_or(0);
                 let tc_x0 = tc.map(|t| t.comp_rect.org.x).unwrap_or(0) as usize;
 
-                let lines_so_far = self.tiles[idx].tile_comps.get(comp_num as usize)
-                    .map(|t| t.lines.len() as u32).unwrap_or(0);
+                let lines_so_far = self.tiles[idx]
+                    .tile_comps
+                    .get(comp_num as usize)
+                    .map(|t| t.lines.len() as u32)
+                    .unwrap_or(0);
                 if lines_so_far < tc_h {
                     let tile_end = tc_x0 + tc_w as usize;
                     let clipped_end = tile_end.min(line.len());
@@ -372,10 +404,13 @@ impl CodestreamLocal {
 
         // Check if all lines across all tiles have been pushed
         let total_lines = self.siz.get_height(comp_num);
-        let pushed_total: u32 = self.tiles.iter()
+        let pushed_total: u32 = self
+            .tiles
+            .iter()
             .filter(|t| t.tile_comps.get(comp_num as usize).is_some())
             .map(|t| t.tile_comps[comp_num as usize].lines.len() as u32)
-            .sum::<u32>() / num_tw;
+            .sum::<u32>()
+            / num_tw;
 
         if pushed_total >= total_lines {
             Ok(None)
@@ -452,7 +487,9 @@ impl CodestreamLocal {
         // Multi-tile: find the tile row that still has data for this component
         let num_tw = self.num_tiles.w as usize;
         let num_th = self.num_tiles.h as usize;
-        let total_w = self.comp_size.get(comp_num as usize)
+        let total_w = self
+            .comp_size
+            .get(comp_num as usize)
             .map(|s| s.w as usize)
             .unwrap_or(0);
 
@@ -482,7 +519,9 @@ impl CodestreamLocal {
                 if let Some(ref tile_line) = tile_lines[tx] {
                     if idx < self.tiles.len() {
                         let tx0 = self.tiles[idx].tile_comps[comp_num as usize]
-                            .comp_rect.org.x as usize;
+                            .comp_rect
+                            .org
+                            .x as usize;
                         let tn = tile_line.len().min(total_w.saturating_sub(tx0));
                         result[tx0..tx0 + tn].copy_from_slice(&tile_line[..tn]);
                     }
@@ -537,12 +576,12 @@ impl CodestreamLocal {
         // Set up line buffers and component sizes
         self.num_comps = self.siz.get_num_components() as u32;
         self.lines = (0..self.num_comps).map(|_| LineBuf::new()).collect();
-        self.comp_size = (0..self.num_comps).map(|c| {
-            Size::new(self.siz.get_width(c), self.siz.get_height(c))
-        }).collect();
-        self.recon_comp_size = (0..self.num_comps).map(|c| {
-            Size::new(self.siz.get_recon_width(c), self.siz.get_recon_height(c))
-        }).collect();
+        self.comp_size = (0..self.num_comps)
+            .map(|c| Size::new(self.siz.get_width(c), self.siz.get_height(c)))
+            .collect();
+        self.recon_comp_size = (0..self.num_comps)
+            .map(|c| Size::new(self.siz.get_recon_width(c), self.siz.get_recon_height(c)))
+            .collect();
         self.employ_color_transform = self.cod.is_employing_color_transform();
 
         self.cur_comp = 0;

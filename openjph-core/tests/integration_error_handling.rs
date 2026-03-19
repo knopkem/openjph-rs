@@ -19,7 +19,8 @@ fn error_no_siz_set() {
     let mut cs = Codestream::new();
     // Only set num_components, but not image extent
     cs.access_siz_mut().set_num_components(1);
-    cs.access_siz_mut().set_comp_info(0, Point::new(1, 1), 8, false);
+    cs.access_siz_mut()
+        .set_comp_info(0, Point::new(1, 1), 8, false);
     let mut outfile = MemOutfile::new();
     // Missing image extent — should error or produce minimal output
     let result = cs.write_headers(&mut outfile, &[]);
@@ -37,7 +38,10 @@ fn error_truncated_soc_only() {
     let mut cs = Codestream::new();
     let mut infile = MemInfile::new(&data);
     let result = cs.read_headers(&mut infile);
-    assert!(result.is_err(), "truncated codestream after SOC should fail");
+    assert!(
+        result.is_err(),
+        "truncated codestream after SOC should fail"
+    );
 }
 
 /// Empty codestream
@@ -500,7 +504,8 @@ fn edge_multiple_independent_codestreams() {
             assert!(
                 line.iter().all(|&v| v == val),
                 "expected all {}, got {:?}",
-                val, line
+                val,
+                line
             );
         }
     }
@@ -528,7 +533,11 @@ fn edge_valid_progression_orders() {
             cod.set_color_transform(false);
             cod.set_num_decomposition(2);
             let result = cod.set_progression_order(order);
-            assert!(result.is_ok(), "progression order '{}' should be valid", order);
+            assert!(
+                result.is_ok(),
+                "progression order '{}' should be valid",
+                order
+            );
         }
     }
 }

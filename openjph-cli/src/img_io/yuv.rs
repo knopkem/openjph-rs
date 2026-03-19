@@ -114,7 +114,9 @@ impl YuvReader {
 }
 
 impl ImageReader for YuvReader {
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 
     fn open(&mut self, filename: &str) -> anyhow::Result<()> {
         let file = File::open(filename)
@@ -124,7 +126,10 @@ impl ImageReader for YuvReader {
     }
 
     fn read_line(&mut self, comp_num: u32) -> anyhow::Result<&[i32]> {
-        let reader = self.reader.as_mut().ok_or_else(|| anyhow::anyhow!("File not open"))?;
+        let reader = self
+            .reader
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("File not open"))?;
         let comp = comp_num as usize;
         let w = self.comp_widths[comp] as usize;
         let bps = self.bytes_per_sample as usize;
@@ -241,7 +246,9 @@ impl YuvWriter {
 }
 
 impl ImageWriter for YuvWriter {
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 
     fn configure(
         &mut self,
@@ -264,7 +271,10 @@ impl ImageWriter for YuvWriter {
     }
 
     fn write_line(&mut self, comp_num: u32, data: &[i32]) -> anyhow::Result<()> {
-        let writer = self.writer.as_mut().ok_or_else(|| anyhow::anyhow!("File not open"))?;
+        let writer = self
+            .writer
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("File not open"))?;
         let comp = comp_num as usize;
         let w = self.comp_widths[comp] as usize;
         let max_val = ((1i64 << self.bit_depth) - 1) as i32;

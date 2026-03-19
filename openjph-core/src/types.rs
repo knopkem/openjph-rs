@@ -59,13 +59,21 @@ pub const fn div_ceil(a: u32, b: u32) -> u32 {
 /// Returns the larger of two values (const-evaluable).
 #[inline]
 pub const fn ojph_max(a: i32, b: i32) -> i32 {
-    if a > b { a } else { b }
+    if a > b {
+        a
+    } else {
+        b
+    }
 }
 
 /// Returns the smaller of two values (const-evaluable).
 #[inline]
 pub const fn ojph_min(a: i32, b: i32) -> i32 {
-    if a < b { a } else { b }
+    if a < b {
+        a
+    } else {
+        b
+    }
 }
 
 // ---------------------------------------------------------------------------

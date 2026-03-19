@@ -13,7 +13,9 @@ pub(crate) fn avx2_convert_signed_to_unsigned(
     width: u32,
     bit_depth: u32,
 ) {
-    unsafe { avx2_s2u_inner(src, dst, width, bit_depth); }
+    unsafe {
+        avx2_s2u_inner(src, dst, width, bit_depth);
+    }
 }
 
 #[cfg(target_arch = "x86_64")]
@@ -45,7 +47,9 @@ pub(crate) fn avx2_convert_unsigned_to_signed(
     width: u32,
     bit_depth: u32,
 ) {
-    unsafe { avx2_u2s_inner(src, dst, width, bit_depth); }
+    unsafe {
+        avx2_u2s_inner(src, dst, width, bit_depth);
+    }
 }
 
 #[cfg(target_arch = "x86_64")]

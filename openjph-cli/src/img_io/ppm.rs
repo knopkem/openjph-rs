@@ -90,7 +90,9 @@ fn read_header_int(reader: &mut BufReader<File>) -> anyhow::Result<u32> {
 }
 
 impl ImageReader for PpmReader {
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 
     fn open(&mut self, filename: &str) -> anyhow::Result<()> {
         let file = File::open(filename)
@@ -157,7 +159,10 @@ impl ImageReader for PpmReader {
     fn read_line(&mut self, comp_num: u32) -> anyhow::Result<&[i32]> {
         // Read raw data when processing component 0 (or when data is stale)
         if comp_num == 0 || !self.cur_line_read {
-            let reader = self.reader.as_mut().ok_or_else(|| anyhow::anyhow!("File not open"))?;
+            let reader = self
+                .reader
+                .as_mut()
+                .ok_or_else(|| anyhow::anyhow!("File not open"))?;
             reader.read_exact(&mut self.temp_buf)?;
             self.cur_line_read = true;
 
@@ -257,7 +262,9 @@ impl PpmWriter {
 }
 
 impl ImageWriter for PpmWriter {
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 
     fn configure(
         &mut self,
@@ -289,7 +296,11 @@ impl ImageWriter for PpmWriter {
 
         let magic = if self.num_components == 1 { "P5" } else { "P6" };
         let max_val = (1u32 << self.bit_depth) - 1;
-        write!(writer, "{}\n{} {}\n{}\n", magic, self.width, self.height, max_val)?;
+        write!(
+            writer,
+            "{}\n{} {}\n{}\n",
+            magic, self.width, self.height, max_val
+        )?;
 
         self.writer = Some(writer);
         Ok(())
@@ -325,7 +336,10 @@ impl ImageWriter for PpmWriter {
                     self.temp_buf[i * 2 + 1] = (val & 0xFF) as u8;
                 }
             }
-            let writer = self.writer.as_mut().ok_or_else(|| anyhow::anyhow!("File not open"))?;
+            let writer = self
+                .writer
+                .as_mut()
+                .ok_or_else(|| anyhow::anyhow!("File not open"))?;
             writer.write_all(&self.temp_buf[..num_ele * self.bytes_per_sample as usize])?;
             self.cur_comp = 0;
         }

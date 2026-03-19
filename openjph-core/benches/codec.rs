@@ -5,18 +5,26 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
 use openjph_core::codestream::Codestream;
-use openjph_core::file::{MemOutfile, MemInfile};
+use openjph_core::file::{MemInfile, MemOutfile};
 use openjph_core::types::{Point, Size};
 
 // ---------------------------------------------------------------------------
 // Helper: encode an 8-bit single-component image to HTJ2K
 // ---------------------------------------------------------------------------
 
-fn encode_image(width: u32, height: u32, pixels: &[i32], num_decomps: u32, reversible: bool) -> Vec<u8> {
+fn encode_image(
+    width: u32,
+    height: u32,
+    pixels: &[i32],
+    num_decomps: u32,
+    reversible: bool,
+) -> Vec<u8> {
     let mut cs = Codestream::new();
-    cs.access_siz_mut().set_image_extent(Point::new(width, height));
+    cs.access_siz_mut()
+        .set_image_extent(Point::new(width, height));
     cs.access_siz_mut().set_num_components(1);
-    cs.access_siz_mut().set_comp_info(0, Point::new(1, 1), 8, false);
+    cs.access_siz_mut()
+        .set_comp_info(0, Point::new(1, 1), 8, false);
     cs.access_siz_mut().set_tile_size(Size::new(width, height));
     cs.access_cod_mut().set_num_decomposition(num_decomps);
     cs.access_cod_mut().set_reversible(reversible);
@@ -27,7 +35,8 @@ fn encode_image(width: u32, height: u32, pixels: &[i32], num_decomps: u32, rever
     cs.write_headers(&mut outfile, &[]).unwrap();
     for y in 0..height as usize {
         let start = y * width as usize;
-        cs.exchange(&pixels[start..start + width as usize], 0).unwrap();
+        cs.exchange(&pixels[start..start + width as usize], 0)
+            .unwrap();
     }
     cs.flush(&mut outfile).unwrap();
     outfile.get_data().to_vec()
@@ -187,5 +196,11 @@ fn bench_roundtrip(c: &mut Criterion) {
 // Criterion groups
 // ---------------------------------------------------------------------------
 
-criterion_group!(benches, bench_encode, bench_decode, bench_dwt_levels, bench_roundtrip);
+criterion_group!(
+    benches,
+    bench_encode,
+    bench_decode,
+    bench_dwt_levels,
+    bench_roundtrip
+);
 criterion_main!(benches);

@@ -7,8 +7,8 @@
 //! `i32` and `i64` paths are provided; for irreversible transforms, only
 //! the `f32` path is used.
 
-use crate::mem::{LineBuf, LineBufData, LFT_32BIT};
 use super::{LiftingStep, ParamAtk};
+use crate::mem::{LineBuf, LineBufData, LFT_32BIT};
 
 // =========================================================================
 // Helpers to get raw slices from LineBuf
@@ -1224,12 +1224,7 @@ mod tests {
 
     #[test]
     fn irv_horz_ana_syn_roundtrip_8() {
-        irv_horz_roundtrip(
-            &[1.0, -2.5, 3.3, 0.7, -1.1, 4.4, 2.2, -0.8],
-            8,
-            true,
-            1e-4,
-        );
+        irv_horz_roundtrip(&[1.0, -2.5, 3.3, 0.7, -1.1, 4.4, 2.2, -0.8], 8, true, 1e-4);
     }
 
     // =================================================================

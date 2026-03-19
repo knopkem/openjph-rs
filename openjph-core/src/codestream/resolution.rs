@@ -3,8 +3,8 @@
 //! Port of `ojph_resolution.h/cpp`. A resolution level contains 1 or 3 subbands
 //! and is divided into precincts.
 
-use crate::types::*;
 use super::subband::{Subband, SubbandType};
+use crate::types::*;
 
 /// A resolution level within a tile-component.
 ///
@@ -98,8 +98,8 @@ impl Resolution {
             let w = res_rect.siz.w;
             let h = res_rect.siz.h;
 
-            let low_w  = div_ceil(ox + w, 2) - div_ceil(ox, 2);
-            let low_h  = div_ceil(oy + h, 2) - div_ceil(oy, 2);
+            let low_w = div_ceil(ox + w, 2) - div_ceil(ox, 2);
+            let low_h = div_ceil(oy + h, 2) - div_ceil(oy, 2);
             let high_w = (ox + w) / 2 - ox / 2;
             let high_h = (oy + h) / 2 - oy / 2;
 
@@ -114,10 +114,7 @@ impl Resolution {
                 Size::new(low_w, high_h),
             );
             // HH: both high-pass
-            let hh_rect = Rect::new(
-                Point::new(ox / 2, oy / 2),
-                Size::new(high_w, high_h),
-            );
+            let hh_rect = Rect::new(Point::new(ox / 2, oy / 2), Size::new(high_w, high_h));
 
             vec![
                 Subband::new(SubbandType::HL, res_num, hl_rect, log_block_dims),

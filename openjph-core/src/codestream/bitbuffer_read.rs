@@ -141,9 +141,9 @@ mod tests {
         // [0xAB, 0xCD] = 0b10101011_11001101
         let data = [0xABu8, 0xCD];
         let mut reader = BitBufferRead::new(&data);
-        assert_eq!(reader.read(4), 0b1010);     // 0xA
-        assert_eq!(reader.read(8), 0b10111100);  // 0xBC (spans bytes)
-        assert_eq!(reader.read(4), 0b1101);      // 0xD
+        assert_eq!(reader.read(4), 0b1010); // 0xA
+        assert_eq!(reader.read(8), 0b10111100); // 0xBC (spans bytes)
+        assert_eq!(reader.read(4), 0b1101); // 0xD
     }
 
     #[test]

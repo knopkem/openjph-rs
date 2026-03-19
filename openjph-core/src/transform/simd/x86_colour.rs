@@ -34,12 +34,18 @@ unsafe fn lb_i32_mut(buf: &mut LineBuf) -> *mut i32 {
 
 #[cfg(target_arch = "x86_64")]
 pub(crate) fn sse2_rct_forward(
-    r: &LineBuf, g: &LineBuf, b: &LineBuf,
-    y: &mut LineBuf, cb: &mut LineBuf, cr: &mut LineBuf,
+    r: &LineBuf,
+    g: &LineBuf,
+    b: &LineBuf,
+    y: &mut LineBuf,
+    cb: &mut LineBuf,
+    cr: &mut LineBuf,
     repeat: u32,
 ) {
     if (y.flags & LFT_32BIT) != 0 {
-        unsafe { sse2_rct_forward_i32(r, g, b, y, cb, cr, repeat); }
+        unsafe {
+            sse2_rct_forward_i32(r, g, b, y, cb, cr, repeat);
+        }
     } else {
         colour::gen_rct_forward(r, g, b, y, cb, cr, repeat);
     }
@@ -48,8 +54,12 @@ pub(crate) fn sse2_rct_forward(
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse2")]
 unsafe fn sse2_rct_forward_i32(
-    r: &LineBuf, g: &LineBuf, b: &LineBuf,
-    y: &mut LineBuf, cb: &mut LineBuf, cr: &mut LineBuf,
+    r: &LineBuf,
+    g: &LineBuf,
+    b: &LineBuf,
+    y: &mut LineBuf,
+    cb: &mut LineBuf,
+    cr: &mut LineBuf,
     repeat: u32,
 ) {
     let mut rp = lb_i32(r);
@@ -70,16 +80,26 @@ unsafe fn sse2_rct_forward_i32(
         _mm_storeu_si128(yp as *mut __m128i, _mm_srai_epi32(sum, 2));
         _mm_storeu_si128(cbp as *mut __m128i, _mm_sub_epi32(vb, vg));
         _mm_storeu_si128(crp as *mut __m128i, _mm_sub_epi32(vr, vg));
-        rp = rp.add(4); gp = gp.add(4); bp = bp.add(4);
-        yp = yp.add(4); cbp = cbp.add(4); crp = crp.add(4);
+        rp = rp.add(4);
+        gp = gp.add(4);
+        bp = bp.add(4);
+        yp = yp.add(4);
+        cbp = cbp.add(4);
+        crp = crp.add(4);
     }
     for _ in 0..remainder {
-        let rr = *rp; let gg = *gp; let bb = *bp;
+        let rr = *rp;
+        let gg = *gp;
+        let bb = *bp;
         *yp = (rr + (gg << 1) + bb) >> 2;
         *cbp = bb - gg;
         *crp = rr - gg;
-        rp = rp.add(1); gp = gp.add(1); bp = bp.add(1);
-        yp = yp.add(1); cbp = cbp.add(1); crp = crp.add(1);
+        rp = rp.add(1);
+        gp = gp.add(1);
+        bp = bp.add(1);
+        yp = yp.add(1);
+        cbp = cbp.add(1);
+        crp = crp.add(1);
     }
 }
 
@@ -89,12 +109,18 @@ unsafe fn sse2_rct_forward_i32(
 
 #[cfg(target_arch = "x86_64")]
 pub(crate) fn sse2_rct_backward(
-    y: &LineBuf, cb: &LineBuf, cr: &LineBuf,
-    r: &mut LineBuf, g: &mut LineBuf, b: &mut LineBuf,
+    y: &LineBuf,
+    cb: &LineBuf,
+    cr: &LineBuf,
+    r: &mut LineBuf,
+    g: &mut LineBuf,
+    b: &mut LineBuf,
     repeat: u32,
 ) {
     if (y.flags & LFT_32BIT) != 0 {
-        unsafe { sse2_rct_backward_i32(y, cb, cr, r, g, b, repeat); }
+        unsafe {
+            sse2_rct_backward_i32(y, cb, cr, r, g, b, repeat);
+        }
     } else {
         colour::gen_rct_backward(y, cb, cr, r, g, b, repeat);
     }
@@ -103,8 +129,12 @@ pub(crate) fn sse2_rct_backward(
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse2")]
 unsafe fn sse2_rct_backward_i32(
-    y: &LineBuf, cb: &LineBuf, cr: &LineBuf,
-    r: &mut LineBuf, g: &mut LineBuf, b: &mut LineBuf,
+    y: &LineBuf,
+    cb: &LineBuf,
+    cr: &LineBuf,
+    r: &mut LineBuf,
+    g: &mut LineBuf,
+    b: &mut LineBuf,
     repeat: u32,
 ) {
     let mut yp = lb_i32(y);
@@ -126,15 +156,27 @@ unsafe fn sse2_rct_backward_i32(
         _mm_storeu_si128(rp as *mut __m128i, _mm_add_epi32(vcr, vg));
         _mm_storeu_si128(gp as *mut __m128i, vg);
         _mm_storeu_si128(bp as *mut __m128i, _mm_add_epi32(vcb, vg));
-        yp = yp.add(4); cbp = cbp.add(4); crp = crp.add(4);
-        rp = rp.add(4); gp = gp.add(4); bp = bp.add(4);
+        yp = yp.add(4);
+        cbp = cbp.add(4);
+        crp = crp.add(4);
+        rp = rp.add(4);
+        gp = gp.add(4);
+        bp = bp.add(4);
     }
     for _ in 0..remainder {
-        let yy = *yp; let cbb = *cbp; let crr = *crp;
+        let yy = *yp;
+        let cbb = *cbp;
+        let crr = *crp;
         let gg = yy - ((cbb + crr) >> 2);
-        *rp = crr + gg; *gp = gg; *bp = cbb + gg;
-        yp = yp.add(1); cbp = cbp.add(1); crp = crp.add(1);
-        rp = rp.add(1); gp = gp.add(1); bp = bp.add(1);
+        *rp = crr + gg;
+        *gp = gg;
+        *bp = cbb + gg;
+        yp = yp.add(1);
+        cbp = cbp.add(1);
+        crp = crp.add(1);
+        rp = rp.add(1);
+        gp = gp.add(1);
+        bp = bp.add(1);
     }
 }
 
@@ -144,18 +186,28 @@ unsafe fn sse2_rct_backward_i32(
 
 #[cfg(target_arch = "x86_64")]
 pub(crate) fn sse2_ict_forward(
-    r: &[f32], g: &[f32], b: &[f32],
-    y: &mut [f32], cb: &mut [f32], cr: &mut [f32],
+    r: &[f32],
+    g: &[f32],
+    b: &[f32],
+    y: &mut [f32],
+    cb: &mut [f32],
+    cr: &mut [f32],
     repeat: u32,
 ) {
-    unsafe { sse2_ict_forward_inner(r, g, b, y, cb, cr, repeat); }
+    unsafe {
+        sse2_ict_forward_inner(r, g, b, y, cb, cr, repeat);
+    }
 }
 
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse2")]
 unsafe fn sse2_ict_forward_inner(
-    r: &[f32], g: &[f32], b: &[f32],
-    y: &mut [f32], cb: &mut [f32], cr: &mut [f32],
+    r: &[f32],
+    g: &[f32],
+    b: &[f32],
+    y: &mut [f32],
+    cb: &mut [f32],
+    cr: &mut [f32],
     repeat: u32,
 ) {
     let v_ar = _mm_set1_ps(colour::ALPHA_RF);
@@ -171,10 +223,19 @@ unsafe fn sse2_ict_forward_inner(
         let vr = _mm_loadu_ps(r.as_ptr().add(i));
         let vg = _mm_loadu_ps(g.as_ptr().add(i));
         let vb = _mm_loadu_ps(b.as_ptr().add(i));
-        let vy = _mm_add_ps(_mm_add_ps(_mm_mul_ps(v_ar, vr), _mm_mul_ps(v_ag, vg)), _mm_mul_ps(v_ab, vb));
+        let vy = _mm_add_ps(
+            _mm_add_ps(_mm_mul_ps(v_ar, vr), _mm_mul_ps(v_ag, vg)),
+            _mm_mul_ps(v_ab, vb),
+        );
         _mm_storeu_ps(y.as_mut_ptr().add(i), vy);
-        _mm_storeu_ps(cb.as_mut_ptr().add(i), _mm_mul_ps(v_bcb, _mm_sub_ps(vb, vy)));
-        _mm_storeu_ps(cr.as_mut_ptr().add(i), _mm_mul_ps(v_bcr, _mm_sub_ps(vr, vy)));
+        _mm_storeu_ps(
+            cb.as_mut_ptr().add(i),
+            _mm_mul_ps(v_bcb, _mm_sub_ps(vb, vy)),
+        );
+        _mm_storeu_ps(
+            cr.as_mut_ptr().add(i),
+            _mm_mul_ps(v_bcr, _mm_sub_ps(vr, vy)),
+        );
         i += 4;
     }
     for j in 0..remainder as usize {
@@ -188,18 +249,28 @@ unsafe fn sse2_ict_forward_inner(
 
 #[cfg(target_arch = "x86_64")]
 pub(crate) fn sse2_ict_backward(
-    y: &[f32], cb: &[f32], cr: &[f32],
-    r: &mut [f32], g: &mut [f32], b: &mut [f32],
+    y: &[f32],
+    cb: &[f32],
+    cr: &[f32],
+    r: &mut [f32],
+    g: &mut [f32],
+    b: &mut [f32],
     repeat: u32,
 ) {
-    unsafe { sse2_ict_backward_inner(y, cb, cr, r, g, b, repeat); }
+    unsafe {
+        sse2_ict_backward_inner(y, cb, cr, r, g, b, repeat);
+    }
 }
 
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse2")]
 unsafe fn sse2_ict_backward_inner(
-    y: &[f32], cb: &[f32], cr: &[f32],
-    r: &mut [f32], g: &mut [f32], b: &mut [f32],
+    y: &[f32],
+    cb: &[f32],
+    cr: &[f32],
+    r: &mut [f32],
+    g: &mut [f32],
+    b: &mut [f32],
     repeat: u32,
 ) {
     let v_cr2r = _mm_set1_ps(colour::GAMMA_CR2R);
@@ -214,10 +285,19 @@ unsafe fn sse2_ict_backward_inner(
         let vy = _mm_loadu_ps(y.as_ptr().add(i));
         let vcb = _mm_loadu_ps(cb.as_ptr().add(i));
         let vcr = _mm_loadu_ps(cr.as_ptr().add(i));
-        let vg = _mm_add_ps(_mm_add_ps(vy, _mm_mul_ps(v_ncr2g, vcr)), _mm_mul_ps(v_ncb2g, vcb));
+        let vg = _mm_add_ps(
+            _mm_add_ps(vy, _mm_mul_ps(v_ncr2g, vcr)),
+            _mm_mul_ps(v_ncb2g, vcb),
+        );
         _mm_storeu_ps(g.as_mut_ptr().add(i), vg);
-        _mm_storeu_ps(r.as_mut_ptr().add(i), _mm_add_ps(vy, _mm_mul_ps(v_cr2r, vcr)));
-        _mm_storeu_ps(b.as_mut_ptr().add(i), _mm_add_ps(vy, _mm_mul_ps(v_cb2b, vcb)));
+        _mm_storeu_ps(
+            r.as_mut_ptr().add(i),
+            _mm_add_ps(vy, _mm_mul_ps(v_cr2r, vcr)),
+        );
+        _mm_storeu_ps(
+            b.as_mut_ptr().add(i),
+            _mm_add_ps(vy, _mm_mul_ps(v_cb2b, vcb)),
+        );
         i += 4;
     }
     for j in 0..remainder as usize {

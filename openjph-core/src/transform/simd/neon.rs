@@ -359,8 +359,8 @@ pub(crate) fn neon_irv_vert_times_k(k: f32, aug: &mut LineBuf, repeat: u32) {
 #[cfg(target_arch = "aarch64")]
 mod tests {
     use super::*;
-    use crate::mem::{LFT_INTEGER, LineBufData};
-    use crate::transform::{LiftingStep, RevLiftingStep, IrvLiftingStep};
+    use crate::mem::{LineBufData, LFT_INTEGER};
+    use crate::transform::{IrvLiftingStep, LiftingStep, RevLiftingStep};
 
     fn make_i32_linebuf(data: &mut [i32]) -> LineBuf {
         LineBuf {
@@ -398,7 +398,12 @@ mod tests {
 
             let mut aug_s = make_i32_linebuf(&mut aug_scalar);
             crate::transform::wavelet::gen_rev_vert_step32(
-                &step, &sig, &other, &mut aug_s, width as u32, false,
+                &step,
+                &sig,
+                &other,
+                &mut aug_s,
+                width as u32,
+                false,
             );
 
             let mut aug_n = make_i32_linebuf(&mut aug_neon);
@@ -412,13 +417,21 @@ mod tests {
 
             let mut aug_ss = make_i32_linebuf(&mut aug_scalar_syn);
             crate::transform::wavelet::gen_rev_vert_step32(
-                &step, &sig, &other, &mut aug_ss, width as u32, true,
+                &step,
+                &sig,
+                &other,
+                &mut aug_ss,
+                width as u32,
+                true,
             );
 
             let mut aug_ns = make_i32_linebuf(&mut aug_neon_syn);
             neon_rev_vert_step(&step, &sig, &other, &mut aug_ns, width as u32, true);
 
-            assert_eq!(aug_scalar_syn, aug_neon_syn, "synthesis mismatch at width={width}");
+            assert_eq!(
+                aug_scalar_syn, aug_neon_syn,
+                "synthesis mismatch at width={width}"
+            );
         }
     }
 
@@ -438,7 +451,12 @@ mod tests {
 
             let mut aug_s = make_i32_linebuf(&mut aug_scalar);
             crate::transform::wavelet::gen_rev_vert_step32(
-                &step, &sig, &other, &mut aug_s, width as u32, false,
+                &step,
+                &sig,
+                &other,
+                &mut aug_s,
+                width as u32,
+                false,
             );
 
             let mut aug_n = make_i32_linebuf(&mut aug_neon);
@@ -458,7 +476,8 @@ mod tests {
 
             for width in [1, 3, 4, 7, 8, 16, 33, 64] {
                 let mut sig_data: Vec<f32> = (0..width).map(|i| i as f32 * 0.1 - 3.0).collect();
-                let mut other_data: Vec<f32> = (0..width).map(|i| -(i as f32) * 0.2 + 1.5).collect();
+                let mut other_data: Vec<f32> =
+                    (0..width).map(|i| -(i as f32) * 0.2 + 1.5).collect();
                 let mut aug_scalar: Vec<f32> = (0..width).map(|i| i as f32 * 0.3).collect();
                 let mut aug_neon: Vec<f32> = aug_scalar.clone();
 
@@ -468,7 +487,12 @@ mod tests {
                 // Scalar
                 let mut aug_s = make_f32_linebuf(&mut aug_scalar);
                 crate::transform::wavelet::gen_irv_vert_step(
-                    &step, &sig, &other, &mut aug_s, width as u32, false,
+                    &step,
+                    &sig,
+                    &other,
+                    &mut aug_s,
+                    width as u32,
+                    false,
                 );
 
                 // NEON
@@ -479,7 +503,8 @@ mod tests {
                     assert!(
                         (aug_scalar[i] - aug_neon[i]).abs() < 1e-5,
                         "irv step a={a_val} width={width} idx={i}: scalar={} neon={}",
-                        aug_scalar[i], aug_neon[i],
+                        aug_scalar[i],
+                        aug_neon[i],
                     );
                 }
             }
@@ -505,7 +530,8 @@ mod tests {
                 assert!(
                     (scalar_data[i] - neon_data[i]).abs() < 1e-5,
                     "times_k width={width} idx={i}: scalar={} neon={}",
-                    scalar_data[i], neon_data[i],
+                    scalar_data[i],
+                    neon_data[i],
                 );
             }
         }

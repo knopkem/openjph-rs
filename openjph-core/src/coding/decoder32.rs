@@ -213,7 +213,7 @@ impl<'a> RevStruct<'a> {
                 | (u32::from(self.data[self.pos - 1]) << 16)
                 | (u32::from(self.data[self.pos - 2]) << 8)
                 | u32::from(self.data[self.pos - 3]);
-            self.pos -= 4;
+            self.pos = self.pos.saturating_sub(4);
             self.size -= 4;
         } else if self.size > 0 {
             let mut i: i32 = 24;
@@ -230,20 +230,35 @@ impl<'a> RevStruct<'a> {
 
         // Accumulate with unstuffing
         let mut tmp = val >> 24;
-        let mut bits: u32 =
-            8 - if self.unstuff && ((val >> 24) & 0x7F) == 0x7F { 1 } else { 0 };
+        let mut bits: u32 = 8 - if self.unstuff && ((val >> 24) & 0x7F) == 0x7F {
+            1
+        } else {
+            0
+        };
         let mut unstuff = (val >> 24) > 0x8F;
 
         tmp |= ((val >> 16) & 0xFF) << bits;
-        bits += 8 - if unstuff && ((val >> 16) & 0x7F) == 0x7F { 1 } else { 0 };
+        bits += 8 - if unstuff && ((val >> 16) & 0x7F) == 0x7F {
+            1
+        } else {
+            0
+        };
         unstuff = ((val >> 16) & 0xFF) > 0x8F;
 
         tmp |= ((val >> 8) & 0xFF) << bits;
-        bits += 8 - if unstuff && ((val >> 8) & 0x7F) == 0x7F { 1 } else { 0 };
+        bits += 8 - if unstuff && ((val >> 8) & 0x7F) == 0x7F {
+            1
+        } else {
+            0
+        };
         unstuff = ((val >> 8) & 0xFF) > 0x8F;
 
         tmp |= (val & 0xFF) << bits;
-        bits += 8 - if unstuff && (val & 0x7F) == 0x7F { 1 } else { 0 };
+        bits += 8 - if unstuff && (val & 0x7F) == 0x7F {
+            1
+        } else {
+            0
+        };
         unstuff = (val & 0xFF) > 0x8F;
 
         self.tmp |= (tmp as u64) << self.bits;
@@ -274,13 +289,21 @@ impl<'a> RevStruct<'a> {
 
         // Align to 4-byte boundary
         let num = 1 + (vlc.pos & 0x3);
-        let tnum = if (num as i32) < vlc.size { num } else { vlc.size as usize };
+        let tnum = if (num as i32) < vlc.size {
+            num
+        } else {
+            vlc.size as usize
+        };
         for _ in 0..tnum {
             let d = u64::from(vlc.data[vlc.pos]);
             if vlc.pos > 0 {
                 vlc.pos -= 1;
             }
-            let d_bits = 8 - if vlc.unstuff && (d & 0x7F) == 0x7F { 1u32 } else { 0 };
+            let d_bits = 8 - if vlc.unstuff && (d & 0x7F) == 0x7F {
+                1u32
+            } else {
+                0
+            };
             vlc.tmp |= d << vlc.bits;
             vlc.bits += d_bits;
             vlc.unstuff = d > 0x8F;
@@ -322,7 +345,7 @@ impl<'a> RevStruct<'a> {
                 | (u32::from(self.data[self.pos - 1]) << 16)
                 | (u32::from(self.data[self.pos - 2]) << 8)
                 | u32::from(self.data[self.pos - 3]);
-            self.pos -= 4;
+            self.pos = self.pos.saturating_sub(4);
             self.size -= 4;
         } else if self.size > 0 {
             let mut i: i32 = 24;
@@ -338,20 +361,35 @@ impl<'a> RevStruct<'a> {
         }
 
         let mut tmp = val >> 24;
-        let mut bits: u32 =
-            8 - if self.unstuff && ((val >> 24) & 0x7F) == 0x7F { 1 } else { 0 };
+        let mut bits: u32 = 8 - if self.unstuff && ((val >> 24) & 0x7F) == 0x7F {
+            1
+        } else {
+            0
+        };
         let mut unstuff = (val >> 24) > 0x8F;
 
         tmp |= ((val >> 16) & 0xFF) << bits;
-        bits += 8 - if unstuff && ((val >> 16) & 0x7F) == 0x7F { 1 } else { 0 };
+        bits += 8 - if unstuff && ((val >> 16) & 0x7F) == 0x7F {
+            1
+        } else {
+            0
+        };
         unstuff = ((val >> 16) & 0xFF) > 0x8F;
 
         tmp |= ((val >> 8) & 0xFF) << bits;
-        bits += 8 - if unstuff && ((val >> 8) & 0x7F) == 0x7F { 1 } else { 0 };
+        bits += 8 - if unstuff && ((val >> 8) & 0x7F) == 0x7F {
+            1
+        } else {
+            0
+        };
         unstuff = ((val >> 8) & 0xFF) > 0x8F;
 
         tmp |= (val & 0xFF) << bits;
-        bits += 8 - if unstuff && (val & 0x7F) == 0x7F { 1 } else { 0 };
+        bits += 8 - if unstuff && (val & 0x7F) == 0x7F {
+            1
+        } else {
+            0
+        };
         unstuff = (val & 0xFF) > 0x8F;
 
         self.tmp |= (tmp as u64) << self.bits;
@@ -383,7 +421,11 @@ impl<'a> RevStruct<'a> {
             } else {
                 0
             };
-            let d_bits = 8 - if mrp.unstuff && (d & 0x7F) == 0x7F { 1u32 } else { 0 };
+            let d_bits = 8 - if mrp.unstuff && (d & 0x7F) == 0x7F {
+                1u32
+            } else {
+                0
+            };
             mrp.tmp |= d << mrp.bits;
             mrp.bits += d_bits;
             mrp.unstuff = d > 0x8F;
@@ -566,14 +608,10 @@ pub(crate) fn decode_codeblock32(
     }
 
     if missing_msbs > 30 {
-        ojph_warn!(
-            "32 bits are not enough to decode this codeblock."
-        );
+        ojph_warn!("32 bits are not enough to decode this codeblock.");
         return Ok(false);
     } else if missing_msbs == 30 {
-        ojph_warn!(
-            "Not enough precision to decode the cleanup pass."
-        );
+        ojph_warn!("Not enough precision to decode the cleanup pass.");
         return Ok(false);
     } else if missing_msbs == 29 {
         if num_passes > 1 {
@@ -593,8 +631,7 @@ pub(crate) fn decode_codeblock32(
     }
 
     let lcup = lengths1 as usize;
-    let scup = ((coded_data[lcup - 1] as usize) << 4)
-        + ((coded_data[lcup - 2] as usize) & 0xF);
+    let scup = ((coded_data[lcup - 1] as usize) << 4) + ((coded_data[lcup - 2] as usize) & 0xF);
     if scup < 2 || scup > lcup || scup > 4079 {
         return Ok(false);
     }
@@ -661,8 +698,7 @@ pub(crate) fn decode_codeblock32(
                 vlc_val = vlc.rev_advance(u32::from(t1) & 0x7);
 
                 // Decode u (UVLC)
-                let mut uvlc_mode =
-                    ((u32::from(t0) & 0x8) << 3) | ((u32::from(t1) & 0x8) << 4);
+                let mut uvlc_mode = ((u32::from(t0) & 0x8) << 3) | ((u32::from(t1) & 0x8) << 4);
                 if uvlc_mode == 0xC0 {
                     run -= 2;
                     uvlc_mode += if run == -1 { 0x40 } else { 0 };
@@ -671,8 +707,7 @@ pub(crate) fn decode_codeblock32(
                     }
                 }
 
-                let mut uvlc_entry =
-                    u32::from(uvlc_tbl0[(uvlc_mode + (vlc_val & 0x3F)) as usize]);
+                let mut uvlc_entry = u32::from(uvlc_tbl0[(uvlc_mode + (vlc_val & 0x3F)) as usize]);
                 vlc_val = vlc.rev_advance(uvlc_entry & 0x7);
                 uvlc_entry >>= 3;
                 let len = uvlc_entry & 0xF;
@@ -747,10 +782,8 @@ pub(crate) fn decode_codeblock32(
                 vlc_val = vlc.rev_advance(u32::from(t1) & 0x7);
 
                 // Decode u (UVLC) — non-initial rows
-                let uvlc_mode =
-                    ((u32::from(t0) & 0x8) << 3) | ((u32::from(t1) & 0x8) << 4);
-                let mut uvlc_entry =
-                    u32::from(uvlc_tbl1[(uvlc_mode + (vlc_val & 0x3F)) as usize]);
+                let uvlc_mode = ((u32::from(t0) & 0x8) << 3) | ((u32::from(t1) & 0x8) << 4);
+                let mut uvlc_entry = u32::from(uvlc_tbl1[(uvlc_mode + (vlc_val & 0x3F)) as usize]);
                 vlc_val = vlc.rev_advance(uvlc_entry & 0x7);
                 uvlc_entry >>= 3;
                 let len = uvlc_entry & 0xF;
@@ -773,6 +806,7 @@ pub(crate) fn decode_codeblock32(
 
             y += 2;
         }
+
     }
 
     // ========================================================================
@@ -1046,10 +1080,8 @@ pub(crate) fn decode_codeblock32(
         {
             let mut prev_row_sig = vec![0u16; 256 + 8];
 
-            let mut sigprop = FrwdStruct32::frwd_init::<0x00>(
-                &coded_data[lengths1 as usize..],
-                lengths2 as i32,
-            );
+            let mut sigprop =
+                FrwdStruct32::frwd_init::<0x00>(&coded_data[lengths1 as usize..], lengths2 as i32);
 
             let mut y: u32 = 0;
             while y < height {
@@ -1084,13 +1116,11 @@ pub(crate) fn decode_codeblock32(
 
                     // Load next sigma row (32 bits)
                     let ns = u32::from(scratch[sigma_next + cur_sig_idx])
-                        | (u32::from(
-                            if cur_sig_idx + 1 < scratch.len() - sigma_next {
-                                scratch[sigma_next + cur_sig_idx + 1]
-                            } else {
-                                0
-                            },
-                        ) << 16);
+                        | (u32::from(if cur_sig_idx + 1 < scratch.len() - sigma_next {
+                            scratch[sigma_next + cur_sig_idx + 1]
+                        } else {
+                            0
+                        }) << 16);
 
                     let mut u = (ps & 0x8888_8888) >> 3; // row on top
                     if !stripe_causal {
@@ -1099,13 +1129,11 @@ pub(crate) fn decode_codeblock32(
 
                     // Current sigma (32 bits)
                     let cs = u32::from(scratch[sigma_row + cur_sig_idx])
-                        | (u32::from(
-                            if cur_sig_idx + 1 < scratch.len() - sigma_row {
-                                scratch[sigma_row + cur_sig_idx + 1]
-                            } else {
-                                0
-                            },
-                        ) << 16);
+                        | (u32::from(if cur_sig_idx + 1 < scratch.len() - sigma_row {
+                            scratch[sigma_row + cur_sig_idx + 1]
+                        } else {
+                            0
+                        }) << 16);
 
                     // Vertical integration
                     let mut mbr = cs;
@@ -1189,7 +1217,14 @@ pub(crate) fn decode_codeblock32(
 
                                     let mut sample_mask = 0x1111u32 & col_mask2;
                                     if new_sig & sample_mask != 0 {
-                                        decoded_data[dp_base + dp_col] =
+                                        decoded_data[dp_base + dp_col] = (cwd << 31) | val;
+                                        cwd >>= 1;
+                                        cnt += 1;
+                                    }
+
+                                    sample_mask += sample_mask;
+                                    if new_sig & sample_mask != 0 {
+                                        decoded_data[dp_base + (stride as usize) + dp_col] =
                                             (cwd << 31) | val;
                                         cwd >>= 1;
                                         cnt += 1;
@@ -1197,8 +1232,7 @@ pub(crate) fn decode_codeblock32(
 
                                     sample_mask += sample_mask;
                                     if new_sig & sample_mask != 0 {
-                                        decoded_data
-                                            [dp_base + (stride as usize) + dp_col] =
+                                        decoded_data[dp_base + 2 * (stride as usize) + dp_col] =
                                             (cwd << 31) | val;
                                         cwd >>= 1;
                                         cnt += 1;
@@ -1206,18 +1240,8 @@ pub(crate) fn decode_codeblock32(
 
                                     sample_mask += sample_mask;
                                     if new_sig & sample_mask != 0 {
-                                        decoded_data[dp_base
-                                            + 2 * (stride as usize)
-                                            + dp_col] = (cwd << 31) | val;
-                                        cwd >>= 1;
-                                        cnt += 1;
-                                    }
-
-                                    sample_mask += sample_mask;
-                                    if new_sig & sample_mask != 0 {
-                                        decoded_data[dp_base
-                                            + 3 * (stride as usize)
-                                            + dp_col] = (cwd << 31) | val;
+                                        decoded_data[dp_base + 3 * (stride as usize) + dp_col] =
+                                            (cwd << 31) | val;
                                         cwd >>= 1;
                                         cnt += 1;
                                     }
@@ -1262,13 +1286,11 @@ pub(crate) fn decode_codeblock32(
                     let sig_idx = sigma_row + ((i >> 2) as usize);
                     // Load 32 bits of sigma (two consecutive u16)
                     let sig = u32::from(scratch[sig_idx])
-                        | (u32::from(
-                            if sig_idx + 1 < scratch.len() {
-                                scratch[sig_idx + 1]
-                            } else {
-                                0
-                            },
-                        ) << 16);
+                        | (u32::from(if sig_idx + 1 < scratch.len() {
+                            scratch[sig_idx + 1]
+                        } else {
+                            0
+                        }) << 16);
 
                     let mut cwd = magref.rev_fetch_mrp();
 
@@ -1283,8 +1305,7 @@ pub(crate) fn decode_codeblock32(
                                 for _ in 0..4u32 {
                                     if sig & sample_mask != 0 {
                                         let sym = cwd & 1;
-                                        let sym =
-                                            ((1 - sym) << (p - 1)) | half;
+                                        let sym = ((1 - sym) << (p - 1)) | half;
                                         decoded_data[dp_off] ^= sym;
                                         cwd >>= 1;
                                     }

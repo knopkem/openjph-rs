@@ -255,7 +255,11 @@ unsafe fn neon_ict_forward_inner(
         let vb = vld1q_f32(b.as_ptr().add(i));
 
         // Y = αR*R + αG*G + αB*B
-        let vy = vfmaq_f32(vfmaq_f32(vmulq_f32(v_alpha_r, vr), v_alpha_g, vg), v_alpha_b, vb);
+        let vy = vfmaq_f32(
+            vfmaq_f32(vmulq_f32(v_alpha_r, vr), v_alpha_g, vg),
+            v_alpha_b,
+            vb,
+        );
         vst1q_f32(y.as_mut_ptr().add(i), vy);
 
         // Cb = βCb * (B - Y)
@@ -355,7 +359,7 @@ unsafe fn neon_ict_backward_inner(
 #[cfg(target_arch = "aarch64")]
 mod tests {
     use super::*;
-    use crate::mem::{LFT_INTEGER, LineBufData};
+    use crate::mem::{LineBufData, LFT_INTEGER};
 
     fn make_i32_linebuf(data: &mut [i32]) -> LineBuf {
         LineBuf {
@@ -451,14 +455,31 @@ mod tests {
             let mut cb_neon = vec![0.0f32; width];
             let mut cr_neon = vec![0.0f32; width];
 
-            colour::gen_ict_forward(&r, &g, &b, &mut y_scalar, &mut cb_scalar, &mut cr_scalar, width as u32);
-            neon_ict_forward(&r, &g, &b, &mut y_neon, &mut cb_neon, &mut cr_neon, width as u32);
+            colour::gen_ict_forward(
+                &r,
+                &g,
+                &b,
+                &mut y_scalar,
+                &mut cb_scalar,
+                &mut cr_scalar,
+                width as u32,
+            );
+            neon_ict_forward(
+                &r,
+                &g,
+                &b,
+                &mut y_neon,
+                &mut cb_neon,
+                &mut cr_neon,
+                width as u32,
+            );
 
             for i in 0..width {
                 assert!(
                     (y_scalar[i] - y_neon[i]).abs() < 1e-5,
                     "Y mismatch at width={width} idx={i}: scalar={} neon={}",
-                    y_scalar[i], y_neon[i],
+                    y_scalar[i],
+                    y_neon[i],
                 );
                 assert!(
                     (cb_scalar[i] - cb_neon[i]).abs() < 1e-5,
@@ -487,8 +508,24 @@ mod tests {
             let mut g_neon = vec![0.0f32; width];
             let mut b_neon = vec![0.0f32; width];
 
-            colour::gen_ict_backward(&y, &cb, &cr, &mut r_scalar, &mut g_scalar, &mut b_scalar, width as u32);
-            neon_ict_backward(&y, &cb, &cr, &mut r_neon, &mut g_neon, &mut b_neon, width as u32);
+            colour::gen_ict_backward(
+                &y,
+                &cb,
+                &cr,
+                &mut r_scalar,
+                &mut g_scalar,
+                &mut b_scalar,
+                width as u32,
+            );
+            neon_ict_backward(
+                &y,
+                &cb,
+                &cr,
+                &mut r_neon,
+                &mut g_neon,
+                &mut b_neon,
+                width as u32,
+            );
 
             for i in 0..width {
                 assert!(

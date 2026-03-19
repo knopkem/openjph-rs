@@ -4,10 +4,10 @@
 
 use std::any::Any;
 
-pub mod ppm;
-pub mod yuv;
 pub mod dpx;
+pub mod ppm;
 pub mod rawl;
+pub mod yuv;
 
 /// Trait for reading image data line-by-line.
 pub trait ImageReader {

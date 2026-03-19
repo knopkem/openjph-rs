@@ -10,11 +10,11 @@
 //! - SIMD dispatch stubs
 
 pub(crate) mod common;
-pub(crate) mod tables;
-pub(crate) mod encoder;
 pub(crate) mod decoder32;
 pub(crate) mod decoder64;
+pub(crate) mod encoder;
 pub(crate) mod simd;
+pub(crate) mod tables;
 
 // Re-export public API types
 pub(crate) use encoder::EncodeResult;
@@ -168,14 +168,13 @@ mod tests {
         let stride = width;
         assert_eq!(samples.len(), (stride * height) as usize);
 
-        let enc_result = encoder::encode_codeblock32(
-            samples, missing_msbs, 1, width, height, stride,
-        )
-        .expect("encode failed");
+        let enc_result =
+            encoder::encode_codeblock32(samples, missing_msbs, 1, width, height, stride)
+                .expect("encode failed");
 
         // The decoder processes 2×2 quads, so the output buffer must
         // accommodate at least 2 rows even when height == 1.
-        let dec_h = height.max(2);
+        let dec_h = height.max(2).next_multiple_of(2);
         let mut decoded = vec![0u32; (stride * dec_h) as usize];
 
         // The decoder requires at least 2 bytes; for all-zero blocks the
@@ -219,12 +218,11 @@ mod tests {
         let stride = width;
         assert_eq!(samples.len(), (stride * height) as usize);
 
-        let enc_result = encoder::encode_codeblock64(
-            samples, missing_msbs, 1, width, height, stride,
-        )
-        .expect("encode failed");
+        let enc_result =
+            encoder::encode_codeblock64(samples, missing_msbs, 1, width, height, stride)
+                .expect("encode failed");
 
-        let dec_h = height.max(2);
+        let dec_h = height.max(2).next_multiple_of(2);
         let mut decoded = vec![0u64; (stride * dec_h) as usize];
 
         if enc_result.length >= 2 {
@@ -289,8 +287,7 @@ mod tests {
         // Verify encoding succeeds and the output is non-empty.
         let samples = vec![0u32; 4096];
         let enc_result =
-            encoder::encode_codeblock32(&samples, 0, 1, 64, 64, 64)
-                .expect("encode failed");
+            encoder::encode_codeblock32(&samples, 0, 1, 64, 64, 64).expect("encode failed");
         assert!(enc_result.length > 0);
     }
 
@@ -299,9 +296,7 @@ mod tests {
         let p = 1u32;
         let msbs = 29u32;
         let n = 64 * 64;
-        let samples: Vec<u32> = (0..n)
-            .map(|i| make_mag32((i as u32 % 10) + 1, p))
-            .collect();
+        let samples: Vec<u32> = (0..n).map(|i| make_mag32((i as u32 % 10) + 1, p)).collect();
         roundtrip32(&samples, 64, 64, msbs);
     }
 
@@ -336,9 +331,7 @@ mod tests {
         // p = 1 → odd magnitudes ≥ 3 roundtrip exactly
         let p = 1u32;
         let msbs = 29u32;
-        let samples: Vec<u32> = (1..=16)
-            .map(|k| make_mag32(k, p))
-            .collect();
+        let samples: Vec<u32> = (1..=16).map(|k| make_mag32(k, p)).collect();
         roundtrip32(&samples, 4, 4, msbs);
     }
 
@@ -356,8 +349,7 @@ mod tests {
         let mut samples = vec![0u32; 64];
         for y in 0..8u32 {
             for x in 0..8u32 {
-                samples[(y * 8 + x) as usize] =
-                    if (x + y) % 2 == 0 { a } else { b };
+                samples[(y * 8 + x) as usize] = if (x + y) % 2 == 0 { a } else { b };
             }
         }
         roundtrip32(&samples, 8, 8, msbs);
@@ -375,7 +367,11 @@ mod tests {
         let samples: Vec<u32> = (1..=16)
             .map(|k| {
                 let mag = make_mag32(k, p);
-                if k % 3 == 0 { mag | 0x80000000 } else { mag }
+                if k % 3 == 0 {
+                    mag | 0x80000000
+                } else {
+                    mag
+                }
             })
             .collect();
         roundtrip32(&samples, 4, 4, msbs);
@@ -400,6 +396,59 @@ mod tests {
         roundtrip32(&samples, 8, 8, msbs);
     }
 
+    #[test]
+    fn roundtrip_centered_gradient_33x33_kmax8() {
+        use super::decoder32;
+        use super::encoder;
+
+        let width = 33u32;
+        let height = 33u32;
+        let kmax = 8u32;
+        let shift = 31 - kmax;
+        let missing_msbs = kmax - 1;
+        let mut samples = Vec::with_capacity((width * height) as usize);
+        let mut expected = Vec::with_capacity((width * height) as usize);
+        for y in 0..height {
+            for x in 0..width {
+                let pixel = ((3 * x + 7 * y) & 0xFF) as i32;
+                let centered = pixel - 128;
+                expected.push(centered);
+                let sign = if centered < 0 { 0x8000_0000 } else { 0 };
+                let mag = centered.unsigned_abs() << shift;
+                samples.push(sign | mag);
+            }
+        }
+
+        let enc_result = encoder::encode_codeblock32(&samples, missing_msbs, 1, width, height, width)
+            .expect("encode failed");
+        let mut coded = enc_result.data.clone();
+        coded.resize(coded.len() + 64, 0);
+        let dec_h = height.max(2).next_multiple_of(2);
+        let mut decoded = vec![0u32; (width * dec_h) as usize];
+        decoder32::decode_codeblock32(
+            &mut coded,
+            &mut decoded,
+            missing_msbs,
+            1,
+            enc_result.length,
+            0,
+            width,
+            height,
+            width,
+            false,
+        )
+        .expect("decode failed");
+
+        for y in 0..height as usize {
+            for x in 0..width as usize {
+                let v = decoded[y * width as usize + x];
+                let mag = ((v & 0x7FFF_FFFF) >> shift) as i32;
+                let got = if (v >> 31) != 0 { -mag } else { mag };
+                assert_eq!(got, expected[y * width as usize + x], "mismatch at ({x}, {y})");
+            }
+        }
+    }
+
     // -----------------------------------------------------------------------
     // 64-bit tests
     // -----------------------------------------------------------------------
@@ -409,9 +458,7 @@ mod tests {
         // p = 1 (missing_msbs = 61 for 64-bit: p = 62 − 61)
         let p = 1u32;
         let msbs = 61u32;
-        let samples: Vec<u64> = (1..=16)
-            .map(|k| make_mag64(k as u64, p))
-            .collect();
+        let samples: Vec<u64> = (1..=16).map(|k| make_mag64(k as u64, p)).collect();
         roundtrip64(&samples, 4, 4, msbs);
     }
 
@@ -470,7 +517,11 @@ mod tests {
             .map(|i| {
                 let mu = (i as u32 % 7) + 1;
                 let mag = make_mag32(mu, p);
-                if i % 5 == 0 { mag | 0x80000000 } else { mag }
+                if i % 5 == 0 {
+                    mag | 0x80000000
+                } else {
+                    mag
+                }
             })
             .collect();
         roundtrip32(&samples, 16, 16, msbs);

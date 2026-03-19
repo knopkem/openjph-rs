@@ -13,7 +13,9 @@ pub(crate) fn neon_convert_signed_to_unsigned(
     width: u32,
     bit_depth: u32,
 ) {
-    unsafe { neon_s2u_inner(src, dst, width, bit_depth); }
+    unsafe {
+        neon_s2u_inner(src, dst, width, bit_depth);
+    }
 }
 
 #[cfg(target_arch = "aarch64")]
@@ -47,7 +49,9 @@ pub(crate) fn neon_convert_unsigned_to_signed(
     width: u32,
     bit_depth: u32,
 ) {
-    unsafe { neon_u2s_inner(src, dst, width, bit_depth); }
+    unsafe {
+        neon_u2s_inner(src, dst, width, bit_depth);
+    }
 }
 
 #[cfg(target_arch = "aarch64")]
@@ -92,7 +96,10 @@ mod tests {
                 gen_convert_signed_to_unsigned(&src, &mut scalar_dst, width as u32, bit_depth);
                 neon_convert_signed_to_unsigned(&src, &mut neon_dst, width as u32, bit_depth);
 
-                assert_eq!(scalar_dst, neon_dst, "s2u mismatch width={width} bd={bit_depth}");
+                assert_eq!(
+                    scalar_dst, neon_dst,
+                    "s2u mismatch width={width} bd={bit_depth}"
+                );
             }
         }
     }
@@ -108,7 +115,10 @@ mod tests {
                 gen_convert_unsigned_to_signed(&src, &mut scalar_dst, width as u32, bit_depth);
                 neon_convert_unsigned_to_signed(&src, &mut neon_dst, width as u32, bit_depth);
 
-                assert_eq!(scalar_dst, neon_dst, "u2s mismatch width={width} bd={bit_depth}");
+                assert_eq!(
+                    scalar_dst, neon_dst,
+                    "u2s mismatch width={width} bd={bit_depth}"
+                );
             }
         }
     }

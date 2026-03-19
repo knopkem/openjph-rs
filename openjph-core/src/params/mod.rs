@@ -44,7 +44,6 @@ pub(crate) mod local;
 
 // Re-export public types
 pub use local::{
-    ParamSiz, ParamCod, ParamQcd, ParamCap, ParamSot, ParamTlm,
-    ParamNlt, ParamDfs, CommentExchange, TtlmPtlmPair,
-    ProgressionOrder, ProfileNum,
+    CommentExchange, ParamCap, ParamCod, ParamDfs, ParamNlt, ParamQcd, ParamSiz, ParamSot,
+    ParamTlm, ProfileNum, ProgressionOrder, TtlmPtlmPair,
 };

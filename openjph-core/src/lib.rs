@@ -94,25 +94,25 @@
 //! | [`coding`] | HTJ2K block entropy coding (internal) |
 //! | [`transform`] | Wavelet and color transforms (internal) |
 
-pub mod types;
-pub mod error;
-pub mod message;
 pub mod arch;
-pub mod mem;
-pub mod file;
 pub mod arg;
-pub mod params;
 pub mod codestream;
 pub mod coding;
+pub mod error;
+pub mod file;
+pub mod mem;
+pub mod message;
+pub mod params;
 pub mod transform;
+pub mod types;
 
-pub use types::*;
 pub use error::{OjphError, Result};
+pub use types::*;
 
 #[cfg(test)]
 mod pipeline_tests {
     use crate::codestream::Codestream;
-    use crate::file::{MemOutfile, MemInfile};
+    use crate::file::{MemInfile, MemOutfile};
     use crate::types::*;
 
     /// Encode an 8×8 image through the full pipeline, decode it, and verify
@@ -127,9 +127,11 @@ mod pipeline_tests {
 
         // --- Encode ---
         let mut cs = Codestream::new();
-        cs.access_siz_mut().set_image_extent(Point::new(width, height));
+        cs.access_siz_mut()
+            .set_image_extent(Point::new(width, height));
         cs.access_siz_mut().set_num_components(1);
-        cs.access_siz_mut().set_comp_info(0, Point::new(1, 1), 8, false);
+        cs.access_siz_mut()
+            .set_comp_info(0, Point::new(1, 1), 8, false);
         cs.access_siz_mut().set_tile_size(Size::new(width, height));
         cs.access_cod_mut().set_num_decomposition(1);
         cs.access_cod_mut().set_reversible(true);
@@ -145,7 +147,11 @@ mod pipeline_tests {
         cs.flush(&mut outfile).unwrap();
 
         let encoded = outfile.get_data().to_vec();
-        assert!(encoded.len() > 20, "encoded data too small: {} bytes", encoded.len());
+        assert!(
+            encoded.len() > 20,
+            "encoded data too small: {} bytes",
+            encoded.len()
+        );
 
         // --- Decode ---
         let mut infile = MemInfile::new(&encoded);
@@ -156,9 +162,11 @@ mod pipeline_tests {
         for y in 0..height as usize {
             let line = cs2.pull(0).expect("expected decoded line");
             assert_eq!(
-                line, image[y],
+                line,
+                image[y],
                 "mismatch at row {y}: got {:?}, expected {:?}",
-                &line[..], &image[y][..]
+                &line[..],
+                &image[y][..]
             );
         }
 
@@ -175,9 +183,11 @@ mod pipeline_tests {
         let image: Vec<Vec<i32>> = vec![vec![125i32; width as usize]; height as usize];
 
         let mut cs = Codestream::new();
-        cs.access_siz_mut().set_image_extent(Point::new(width, height));
+        cs.access_siz_mut()
+            .set_image_extent(Point::new(width, height));
         cs.access_siz_mut().set_num_components(1);
-        cs.access_siz_mut().set_comp_info(0, Point::new(1, 1), 8, false);
+        cs.access_siz_mut()
+            .set_comp_info(0, Point::new(1, 1), 8, false);
         cs.access_siz_mut().set_tile_size(Size::new(width, height));
         cs.access_cod_mut().set_num_decomposition(1);
         cs.access_cod_mut().set_reversible(true);
@@ -212,9 +222,11 @@ mod pipeline_tests {
         let image: Vec<Vec<i32>> = vec![vec![131i32; width as usize]; height as usize];
 
         let mut cs = Codestream::new();
-        cs.access_siz_mut().set_image_extent(Point::new(width, height));
+        cs.access_siz_mut()
+            .set_image_extent(Point::new(width, height));
         cs.access_siz_mut().set_num_components(1);
-        cs.access_siz_mut().set_comp_info(0, Point::new(1, 1), 8, false);
+        cs.access_siz_mut()
+            .set_comp_info(0, Point::new(1, 1), 8, false);
         cs.access_siz_mut().set_tile_size(Size::new(width, height));
         cs.access_cod_mut().set_num_decomposition(0);
         cs.access_cod_mut().set_reversible(true);
@@ -243,8 +255,8 @@ mod pipeline_tests {
     /// Block coder roundtrip with corrected missing_msbs computation.
     #[test]
     fn block_coder_roundtrip_magnitude_3() {
-        use crate::coding::encoder::encode_codeblock32;
         use crate::coding::decoder32::decode_codeblock32;
+        use crate::coding::encoder::encode_codeblock32;
 
         // Magnitude 3 with p=1 should roundtrip exactly
         let mag = 3u32;
@@ -260,13 +272,25 @@ mod pipeline_tests {
         coded.resize(coded.len() + 16, 0);
         let mut decoded = vec![0u32; 16];
         decode_codeblock32(
-            &mut coded, &mut decoded, missing_msbs, 1,
-            enc.length, 0, 4, 4, 4, false,
-        ).unwrap();
+            &mut coded,
+            &mut decoded,
+            missing_msbs,
+            1,
+            enc.length,
+            0,
+            4,
+            4,
+            4,
+            false,
+        )
+        .unwrap();
 
         for i in 0..16 {
-            assert_eq!(decoded[i], buf[i],
-                "mismatch at {}: got 0x{:08X}, expected 0x{:08X}", i, decoded[i], buf[i]);
+            assert_eq!(
+                decoded[i], buf[i],
+                "mismatch at {}: got 0x{:08X}, expected 0x{:08X}",
+                i, decoded[i], buf[i]
+            );
         }
     }
 }
@@ -274,8 +298,10 @@ mod pipeline_tests {
 #[cfg(test)]
 mod debug_roundtrip_test {
     use super::*;
+    use crate::coding::decoder32::decode_codeblock32;
+    use crate::coding::encoder::encode_codeblock32;
     use crate::codestream::Codestream;
-    use crate::file::{MemOutfile, MemInfile};
+    use crate::file::{MemInfile, MemOutfile};
     use crate::types::{Point, Size};
 
     #[test]
@@ -285,9 +311,11 @@ mod debug_roundtrip_test {
         let pixels = vec![100i32; (width * height) as usize];
 
         let mut cs = Codestream::new();
-        cs.access_siz_mut().set_image_extent(Point::new(width, height));
+        cs.access_siz_mut()
+            .set_image_extent(Point::new(width, height));
         cs.access_siz_mut().set_num_components(1);
-        cs.access_siz_mut().set_comp_info(0, Point::new(1, 1), 8, false);
+        cs.access_siz_mut()
+            .set_comp_info(0, Point::new(1, 1), 8, false);
         cs.access_siz_mut().set_tile_size(Size::new(width, height));
         cs.access_cod_mut().set_num_decomposition(0);
         cs.access_cod_mut().set_reversible(true);
@@ -313,8 +341,654 @@ mod debug_roundtrip_test {
             let line = cs2.pull(0).expect("expected decoded line");
             for x in 0..width as usize {
                 if line[x] != pixels[y * width as usize + x] {
-                    panic!("Mismatch at ({},{}): expected {}, got {}",
-                        x, y, pixels[y * width as usize + x], line[x]);
+                    panic!(
+                        "Mismatch at ({},{}): expected {}, got {}",
+                        x,
+                        y,
+                        pixels[y * width as usize + x],
+                        line[x]
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn debug_no_dwt_33x33_packet_preserves_block_bytes() {
+        let width = 33u32;
+        let height = 33u32;
+        let mut image = Vec::with_capacity((width * height) as usize);
+        for y in 0..height {
+            for x in 0..width {
+                image.push(((3 * x + 7 * y) & 0xFF) as i32);
+            }
+        }
+
+        let kmax = 8u32;
+        let shift = 31 - kmax;
+        let missing_msbs = kmax - 1;
+        let stride = 64u32;
+        let nominal_h = 64u32;
+        let mut direct_samples = vec![0u32; (stride * nominal_h) as usize];
+        for y in 0..height as usize {
+            for x in 0..width as usize {
+                let pixel = image[y * width as usize + x];
+                let centered = pixel - 128;
+                let sign = if centered < 0 { 0x8000_0000 } else { 0 };
+                let mag = centered.unsigned_abs() << shift;
+                direct_samples[y * stride as usize + x] = sign | mag;
+            }
+        }
+        let direct = encode_codeblock32(&direct_samples, missing_msbs, 1, width, height, stride)
+            .expect("direct block encode failed");
+        let direct_bytes = direct.data[..direct.length as usize].to_vec();
+
+        let mut cs = Codestream::new();
+        cs.access_siz_mut()
+            .set_image_extent(Point::new(width, height));
+        cs.access_siz_mut().set_num_components(1);
+        cs.access_siz_mut()
+            .set_comp_info(0, Point::new(1, 1), 8, false);
+        cs.access_siz_mut().set_tile_size(Size::new(width, height));
+        cs.access_cod_mut().set_num_decomposition(0);
+        cs.access_cod_mut().set_reversible(true);
+        cs.access_cod_mut().set_color_transform(false);
+        cs.set_planar(0);
+
+        let mut outfile = MemOutfile::new();
+        cs.write_headers(&mut outfile, &[]).unwrap();
+        for y in 0..height as usize {
+            let start = y * width as usize;
+            let end = start + width as usize;
+            cs.exchange(&image[start..end], 0).unwrap();
+        }
+        cs.flush(&mut outfile).unwrap();
+
+        let enc_cb = &cs.debug_inner().tiles[0].tile_comps[0].resolutions[0].subbands[0].codeblocks[0];
+        let enc_state = enc_cb.enc_state.as_ref().expect("missing encode state");
+        assert_eq!(enc_state.pass1_bytes as usize, direct_bytes.len());
+        assert_eq!(enc_cb.coded_data, direct_bytes);
+
+        let encoded = outfile.get_data().to_vec();
+        let mut infile = MemInfile::new(&encoded);
+        let mut dec = Codestream::new();
+        dec.read_headers(&mut infile).unwrap();
+        dec.create(&mut infile).unwrap();
+
+        let dec_cb = &dec.debug_inner().tiles[0].tile_comps[0].resolutions[0].subbands[0].codeblocks[0];
+        let dec_state = dec_cb.dec_state.as_ref().expect("missing decode state");
+        assert_eq!(dec_state.pass1_len as usize, direct_bytes.len());
+        assert_eq!(dec_cb.coded_data, direct_bytes);
+
+        let mut decoded = Vec::with_capacity((width * height) as usize);
+        for _ in 0..height {
+            decoded.extend(dec.pull(0).expect("missing decoded line"));
+        }
+        assert_eq!(decoded, image);
+    }
+
+    #[test]
+    fn debug_d2_subband_coeffs_survive_roundtrip() {
+        let width = 64u32;
+        let height = 64u32;
+        let mut image = Vec::with_capacity((width * height) as usize);
+        for y in 0..height {
+            for x in 0..width {
+                image.push(((3 * x + 7 * y) & 0xFF) as i32);
+            }
+        }
+
+        let mut cs = Codestream::new();
+        cs.access_siz_mut()
+            .set_image_extent(Point::new(width, height));
+        cs.access_siz_mut().set_num_components(1);
+        cs.access_siz_mut()
+            .set_comp_info(0, Point::new(1, 1), 8, false);
+        cs.access_siz_mut().set_tile_size(Size::new(width, height));
+        cs.access_cod_mut().set_num_decomposition(2);
+        cs.access_cod_mut().set_reversible(true);
+        cs.access_cod_mut().set_color_transform(false);
+        cs.set_planar(0);
+
+        let mut outfile = MemOutfile::new();
+        cs.write_headers(&mut outfile, &[]).unwrap();
+        for y in 0..height as usize {
+            let start = y * width as usize;
+            let end = start + width as usize;
+            cs.exchange(&image[start..end], 0).unwrap();
+        }
+        cs.flush(&mut outfile).unwrap();
+
+        let enc_tc = &cs.debug_inner().tiles[0].tile_comps[0];
+        let enc_coeffs: Vec<Vec<Vec<i32>>> = enc_tc
+            .resolutions
+            .iter()
+            .map(|res| res.subbands.iter().map(|sb| sb.coeffs.clone()).collect())
+            .collect();
+
+        let encoded = outfile.get_data().to_vec();
+        let mut infile = MemInfile::new(&encoded);
+        let mut dec = Codestream::new();
+        dec.read_headers(&mut infile).unwrap();
+        dec.create(&mut infile).unwrap();
+
+        let dec_tc = &dec.debug_inner().tiles[0].tile_comps[0];
+        for (res_idx, (enc_res, dec_res)) in enc_coeffs.iter().zip(&dec_tc.resolutions).enumerate() {
+            for (sb_idx, (enc_sb, dec_sb)) in enc_res.iter().zip(&dec_res.subbands).enumerate() {
+                assert_eq!(
+                    enc_sb,
+                    &dec_sb.coeffs,
+                    "subband mismatch at resolution {res_idx}, subband {sb_idx}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn debug_compare_forward_dwt_against_cpp_d2() {
+        use std::fs;
+        use std::process::Command;
+
+        let width = 64u32;
+        let height = 64u32;
+        let mut image = Vec::with_capacity((width * height) as usize);
+        for y in 0..height {
+            for x in 0..width {
+                image.push(((3 * x + 7 * y) & 0xFF) as i32);
+            }
+        }
+
+        let tmp = std::env::temp_dir().join("openjph-rs-forward-dwt-d2");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+        let pgm_path = tmp.join("in.pgm");
+        let j2c_path = tmp.join("cpp-d2.j2c");
+
+        let mut pgm = Vec::new();
+        pgm.extend_from_slice(format!("P5\n{} {}\n255\n", width, height).as_bytes());
+        for &v in &image {
+            pgm.push(v as u8);
+        }
+        fs::write(&pgm_path, pgm).unwrap();
+
+        let status = Command::new(
+            "/Users/macair/projects/dicom/OpenJPH/build-nosimd/src/apps/ojph_compress/ojph_compress",
+        )
+        .args([
+            "-i",
+            pgm_path.to_str().unwrap(),
+            "-o",
+            j2c_path.to_str().unwrap(),
+            "-reversible",
+            "true",
+            "-num_decomps",
+            "2",
+        ])
+        .status()
+        .expect("failed to run ojph_compress");
+        assert!(status.success(), "ojph_compress failed");
+
+        let mut cs = Codestream::new();
+        cs.access_siz_mut()
+            .set_image_extent(Point::new(width, height));
+        cs.access_siz_mut().set_num_components(1);
+        cs.access_siz_mut()
+            .set_comp_info(0, Point::new(1, 1), 8, false);
+        cs.access_siz_mut().set_tile_size(Size::new(width, height));
+        cs.access_cod_mut().set_num_decomposition(2);
+        cs.access_cod_mut().set_reversible(true);
+        cs.access_cod_mut().set_color_transform(false);
+        cs.set_planar(0);
+
+        let mut outfile = MemOutfile::new();
+        cs.write_headers(&mut outfile, &[]).unwrap();
+        for y in 0..height as usize {
+            let start = y * width as usize;
+            let end = start + width as usize;
+            cs.exchange(&image[start..end], 0).unwrap();
+        }
+        cs.flush(&mut outfile).unwrap();
+
+        let rust_tc = &cs.debug_inner().tiles[0].tile_comps[0];
+
+        let cpp_data = fs::read(&j2c_path).unwrap();
+        let mut infile = MemInfile::new(&cpp_data);
+        let mut dec = Codestream::new();
+        dec.read_headers(&mut infile).unwrap();
+        dec.create(&mut infile).unwrap();
+        let cpp_tc = &dec.debug_inner().tiles[0].tile_comps[0];
+
+        for (res_idx, (rust_res, cpp_res)) in rust_tc
+            .resolutions
+            .iter()
+            .zip(&cpp_tc.resolutions)
+            .enumerate()
+        {
+            for (sb_idx, (rust_sb, cpp_sb)) in rust_res.subbands.iter().zip(&cpp_res.subbands).enumerate() {
+                if rust_sb.coeffs != cpp_sb.coeffs {
+                    let first = rust_sb
+                        .coeffs
+                        .iter()
+                        .zip(&cpp_sb.coeffs)
+                        .enumerate()
+                        .find(|(_, (a, b))| a != b)
+                        .expect("expected at least one mismatch");
+                    panic!(
+                        "forward DWT mismatch at resolution {}, subband {} index {}: rust={} cpp={} (len rust={} cpp={})",
+                        res_idx,
+                        sb_idx,
+                        first.0,
+                        first.1 .0,
+                        first.1 .1,
+                        rust_sb.coeffs.len(),
+                        cpp_sb.coeffs.len()
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn debug_compare_forward_dwt_against_cpp_d1() {
+        use std::fs;
+        use std::process::Command;
+
+        let width = 64u32;
+        let height = 64u32;
+        let mut image = Vec::with_capacity((width * height) as usize);
+        for y in 0..height {
+            for x in 0..width {
+                image.push(((3 * x + 7 * y) & 0xFF) as i32);
+            }
+        }
+
+        let tmp = std::env::temp_dir().join("openjph-rs-forward-dwt-d1");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&tmp).unwrap();
+        let pgm_path = tmp.join("in.pgm");
+        let j2c_path = tmp.join("cpp-d1.j2c");
+
+        let mut pgm = Vec::new();
+        pgm.extend_from_slice(format!("P5\n{} {}\n255\n", width, height).as_bytes());
+        for &v in &image {
+            pgm.push(v as u8);
+        }
+        fs::write(&pgm_path, pgm).unwrap();
+
+        let status = Command::new(
+            "/Users/macair/projects/dicom/OpenJPH/build-nosimd/src/apps/ojph_compress/ojph_compress",
+        )
+        .args([
+            "-i",
+            pgm_path.to_str().unwrap(),
+            "-o",
+            j2c_path.to_str().unwrap(),
+            "-reversible",
+            "true",
+            "-num_decomps",
+            "1",
+        ])
+        .status()
+        .expect("failed to run ojph_compress");
+        assert!(status.success(), "ojph_compress failed");
+
+        let mut cs = Codestream::new();
+        cs.access_siz_mut()
+            .set_image_extent(Point::new(width, height));
+        cs.access_siz_mut().set_num_components(1);
+        cs.access_siz_mut()
+            .set_comp_info(0, Point::new(1, 1), 8, false);
+        cs.access_siz_mut().set_tile_size(Size::new(width, height));
+        cs.access_cod_mut().set_num_decomposition(1);
+        cs.access_cod_mut().set_reversible(true);
+        cs.access_cod_mut().set_color_transform(false);
+        cs.set_planar(0);
+
+        let mut outfile = MemOutfile::new();
+        cs.write_headers(&mut outfile, &[]).unwrap();
+        for y in 0..height as usize {
+            let start = y * width as usize;
+            let end = start + width as usize;
+            cs.exchange(&image[start..end], 0).unwrap();
+        }
+        cs.flush(&mut outfile).unwrap();
+
+        let rust_tc = &cs.debug_inner().tiles[0].tile_comps[0];
+
+        let cpp_data = fs::read(&j2c_path).unwrap();
+        let mut infile = MemInfile::new(&cpp_data);
+        let mut dec = Codestream::new();
+        dec.read_headers(&mut infile).unwrap();
+        dec.create(&mut infile).unwrap();
+        let cpp_tc = &dec.debug_inner().tiles[0].tile_comps[0];
+
+        for (res_idx, (rust_res, cpp_res)) in rust_tc
+            .resolutions
+            .iter()
+            .zip(&cpp_tc.resolutions)
+            .enumerate()
+        {
+            for (sb_idx, (rust_sb, cpp_sb)) in rust_res.subbands.iter().zip(&cpp_res.subbands).enumerate() {
+                assert_eq!(
+                    rust_sb.coeffs,
+                    cpp_sb.coeffs,
+                    "forward DWT mismatch at resolution {res_idx}, subband {sb_idx}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn debug_tiled_d5_encoder_codeblocks_are_decodable() {
+        let width = 256u32;
+        let height = 256u32;
+        let mut components = vec![Vec::with_capacity((width * height) as usize); 3];
+        for y in 0..height {
+            for x in 0..width {
+                components[0].push(((x * 255) / width.max(1)) as i32);
+                components[1].push(((y * 255) / height.max(1)) as i32);
+                components[2].push((((x + y) * 127) / (width + height).max(1)) as i32);
+            }
+        }
+
+        let mut cs = Codestream::new();
+        cs.access_siz_mut()
+            .set_image_extent(Point::new(width, height));
+        cs.access_siz_mut().set_tile_size(Size::new(33, 33));
+        cs.access_siz_mut().set_num_components(3);
+        for c in 0..3 {
+            cs.access_siz_mut()
+                .set_comp_info(c, Point::new(1, 1), 8, false);
+        }
+        cs.access_cod_mut().set_num_decomposition(5);
+        cs.access_cod_mut().set_reversible(true);
+        cs.access_cod_mut().set_color_transform(true);
+
+        let mut outfile = MemOutfile::new();
+        cs.write_headers(&mut outfile, &[]).unwrap();
+        for y in 0..height as usize {
+            let start = y * width as usize;
+            let end = start + width as usize;
+            for c in 0..3usize {
+                cs.exchange(&components[c][start..end], c as u32).unwrap();
+            }
+        }
+        cs.flush(&mut outfile).unwrap();
+
+        for (tile_idx, tile) in cs.debug_inner().tiles.iter().enumerate() {
+            for (comp_idx, tc) in tile.tile_comps.iter().enumerate() {
+                for (res_idx, res) in tc.resolutions.iter().enumerate() {
+                    for (sb_idx, sb) in res.subbands.iter().enumerate() {
+                        for (cb_idx, cb) in sb.codeblocks.iter().enumerate() {
+                            let Some(enc) = cb.enc_state.as_ref() else {
+                                continue;
+                            };
+                            if !enc.has_data || enc.num_passes == 0 {
+                                continue;
+                            }
+
+                            let mut coded = cb.coded_data.clone();
+                            let nominal_w = 1u32 << cb.log_block_dims.w;
+                            let nominal_h = 1u32 << cb.log_block_dims.h;
+                            let stride = (nominal_w + 7) & !7;
+                            let mut decoded = vec![0u32; (stride * nominal_h) as usize];
+                            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                decode_codeblock32(
+                                    &mut coded,
+                                    &mut decoded,
+                                    enc.missing_msbs,
+                                    enc.num_passes,
+                                    enc.pass1_bytes,
+                                    enc.pass2_bytes,
+                                    cb.width(),
+                                    cb.height(),
+                                    stride,
+                                    false,
+                                )
+                            }));
+
+                            match result {
+                                Ok(Ok(true)) | Ok(Ok(false)) => {}
+                                Ok(Err(err)) => panic!(
+                                    "decode error for tile={tile_idx} comp={comp_idx} res={res_idx} sb={sb_idx} cb={cb_idx} rect={:?} passes={} p1={} p2={} mmsbs={}: {err:?}",
+                                    cb.cb_rect,
+                                    enc.num_passes,
+                                    enc.pass1_bytes,
+                                    enc.pass2_bytes,
+                                    enc.missing_msbs,
+                                ),
+                                Err(_) => panic!(
+                                    "decode panic for tile={tile_idx} comp={comp_idx} res={res_idx} sb={sb_idx} cb={cb_idx} rect={:?} passes={} p1={} p2={} mmsbs={} bytes={:02X?}",
+                                    cb.cb_rect,
+                                    enc.num_passes,
+                                    enc.pass1_bytes,
+                                    enc.pass2_bytes,
+                                    enc.missing_msbs,
+                                    cb.coded_data,
+                                ),
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn debug_rev53_4x1024_encoder_codeblocks_are_decodable() {
+        let width = 256u32;
+        let height = 256u32;
+        let mut components = vec![Vec::with_capacity((width * height) as usize); 3];
+        for y in 0..height {
+            for x in 0..width {
+                components[0].push(((x * 255) / width.max(1)) as i32);
+                components[1].push(((y * 255) / height.max(1)) as i32);
+                components[2].push((((x + y) * 127) / (width + height).max(1)) as i32);
+            }
+        }
+
+        let mut cs = Codestream::new();
+        cs.access_siz_mut()
+            .set_image_extent(Point::new(width, height));
+        cs.access_siz_mut().set_tile_size(Size::new(width, height));
+        cs.access_siz_mut().set_num_components(3);
+        for c in 0..3 {
+            cs.access_siz_mut()
+                .set_comp_info(c, Point::new(1, 1), 8, false);
+        }
+        cs.access_cod_mut().set_num_decomposition(5);
+        cs.access_cod_mut().set_reversible(true);
+        cs.access_cod_mut().set_color_transform(true);
+        cs.access_cod_mut().set_block_dims(4, 1024);
+
+        let mut outfile = MemOutfile::new();
+        cs.write_headers(&mut outfile, &[]).unwrap();
+        for y in 0..height as usize {
+            let start = y * width as usize;
+            let end = start + width as usize;
+            for c in 0..3usize {
+                cs.exchange(&components[c][start..end], c as u32).unwrap();
+            }
+        }
+        cs.flush(&mut outfile).unwrap();
+
+        for (tile_idx, tile) in cs.debug_inner().tiles.iter().enumerate() {
+            for (comp_idx, tc) in tile.tile_comps.iter().enumerate() {
+                for (res_idx, res) in tc.resolutions.iter().enumerate() {
+                    for (sb_idx, sb) in res.subbands.iter().enumerate() {
+                        for (cb_idx, cb) in sb.codeblocks.iter().enumerate() {
+                            let Some(enc) = cb.enc_state.as_ref() else {
+                                continue;
+                            };
+                            if !enc.has_data || enc.num_passes == 0 {
+                                continue;
+                            }
+
+                            let nominal_w = 1u32 << cb.log_block_dims.w;
+                            let nominal_h = 1u32 << cb.log_block_dims.h;
+                            let stride = (nominal_w + 7) & !7;
+                            let mut coded = cb.coded_data.clone();
+                            let mut decoded = vec![0u32; (stride * nominal_h) as usize];
+                            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                decode_codeblock32(
+                                    &mut coded,
+                                    &mut decoded,
+                                    enc.missing_msbs,
+                                    enc.num_passes,
+                                    enc.pass1_bytes,
+                                    enc.pass2_bytes,
+                                    cb.width(),
+                                    cb.height(),
+                                    stride,
+                                    false,
+                                )
+                            }));
+
+                            match result {
+                                Ok(Ok(true)) | Ok(Ok(false)) => {}
+                                Ok(Err(err)) => panic!(
+                                    "decode error for tile={tile_idx} comp={comp_idx} res={res_idx} sb={sb_idx} cb={cb_idx} rect={:?} log_dims={:?} passes={} p1={} p2={} mmsbs={} bytes={:02X?}: {err:?}",
+                                    cb.cb_rect,
+                                    cb.log_block_dims,
+                                    enc.num_passes,
+                                    enc.pass1_bytes,
+                                    enc.pass2_bytes,
+                                    enc.missing_msbs,
+                                    cb.coded_data,
+                                ),
+                                Err(_) => panic!(
+                                    "decode panic for tile={tile_idx} comp={comp_idx} res={res_idx} sb={sb_idx} cb={cb_idx} rect={:?} log_dims={:?} passes={} p1={} p2={} mmsbs={} bytes={:02X?}",
+                                    cb.cb_rect,
+                                    cb.log_block_dims,
+                                    enc.num_passes,
+                                    enc.pass1_bytes,
+                                    enc.pass2_bytes,
+                                    enc.missing_msbs,
+                                    cb.coded_data,
+                                ),
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn debug_rev53_4x1024_packet_preserves_codeblocks() {
+        let width = 256u32;
+        let height = 256u32;
+        let mut components = vec![Vec::with_capacity((width * height) as usize); 3];
+        for y in 0..height {
+            for x in 0..width {
+                components[0].push(((x * 255) / width.max(1)) as i32);
+                components[1].push(((y * 255) / height.max(1)) as i32);
+                components[2].push((((x + y) * 127) / (width + height).max(1)) as i32);
+            }
+        }
+
+        let mut cs = Codestream::new();
+        cs.access_siz_mut()
+            .set_image_extent(Point::new(width, height));
+        cs.access_siz_mut().set_tile_size(Size::new(width, height));
+        cs.access_siz_mut().set_num_components(3);
+        for c in 0..3 {
+            cs.access_siz_mut()
+                .set_comp_info(c, Point::new(1, 1), 8, false);
+        }
+        cs.access_cod_mut().set_num_decomposition(5);
+        cs.access_cod_mut().set_reversible(true);
+        cs.access_cod_mut().set_color_transform(true);
+        cs.access_cod_mut().set_block_dims(4, 1024);
+
+        let mut outfile = MemOutfile::new();
+        cs.write_headers(&mut outfile, &[]).unwrap();
+        for y in 0..height as usize {
+            let start = y * width as usize;
+            let end = start + width as usize;
+            for c in 0..3usize {
+                cs.exchange(&components[c][start..end], c as u32).unwrap();
+            }
+        }
+        cs.flush(&mut outfile).unwrap();
+
+        let encoded = outfile.get_data().to_vec();
+        let mut infile = MemInfile::new(&encoded);
+        let mut dec = Codestream::new();
+        dec.read_headers(&mut infile).unwrap();
+        dec.create(&mut infile).unwrap();
+
+        for (tile_idx, (enc_tile, dec_tile)) in cs
+            .debug_inner()
+            .tiles
+            .iter()
+            .zip(&dec.debug_inner().tiles)
+            .enumerate()
+        {
+            for (comp_idx, (enc_tc, dec_tc)) in enc_tile
+                .tile_comps
+                .iter()
+                .zip(&dec_tile.tile_comps)
+                .enumerate()
+            {
+                for (res_idx, (enc_res, dec_res)) in enc_tc
+                    .resolutions
+                    .iter()
+                    .zip(&dec_tc.resolutions)
+                    .enumerate()
+                {
+                    for (sb_idx, (enc_sb, dec_sb)) in enc_res
+                        .subbands
+                        .iter()
+                        .zip(&dec_res.subbands)
+                        .enumerate()
+                    {
+                        for (cb_idx, (enc_cb, dec_cb)) in enc_sb
+                            .codeblocks
+                            .iter()
+                            .zip(&dec_sb.codeblocks)
+                            .enumerate()
+                        {
+                            let enc_state = enc_cb.enc_state.as_ref();
+                            let dec_state = dec_cb.dec_state.as_ref();
+                            match (enc_state, dec_state) {
+                                (None, None) => continue,
+                                (Some(enc), None) if !enc.has_data || enc.num_passes == 0 => continue,
+                                (Some(enc), Some(dec_state)) => {
+                                    if enc.has_data != (dec_state.num_passes > 0) {
+                                        panic!(
+                                            "has_data mismatch tile={tile_idx} comp={comp_idx} res={res_idx} sb={sb_idx} cb={cb_idx} rect={:?} enc={:?} dec={:?}",
+                                            enc_cb.cb_rect, enc, dec_state
+                                        );
+                                    }
+                                    if !enc.has_data {
+                                        continue;
+                                    }
+                                    if enc.pass1_bytes != dec_state.pass1_len
+                                        || enc.pass2_bytes != dec_state.pass2_len
+                                        || enc.num_passes != dec_state.num_passes
+                                        || enc.missing_msbs != dec_state.missing_msbs
+                                        || enc_cb.coded_data != dec_cb.coded_data
+                                    {
+                                        panic!(
+                                            "packet mismatch tile={tile_idx} comp={comp_idx} res={res_idx} sb={sb_idx} cb={cb_idx} rect={:?} enc={:?} dec={:?} enc_bytes={:02X?} dec_bytes={:02X?}",
+                                            enc_cb.cb_rect,
+                                            enc,
+                                            dec_state,
+                                            enc_cb.coded_data,
+                                            dec_cb.coded_data,
+                                        );
+                                    }
+                                }
+                                _ => panic!(
+                                    "state presence mismatch tile={tile_idx} comp={comp_idx} res={res_idx} sb={sb_idx} cb={cb_idx} rect={:?} enc={:?} dec={:?}",
+                                    enc_cb.cb_rect,
+                                    enc_state,
+                                    dec_state,
+                                ),
+                            }
+                        }
+                    }
                 }
             }
         }

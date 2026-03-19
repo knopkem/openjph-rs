@@ -1,0 +1,107 @@
+================================================================================
+D2 and D5 REVERSIBLE CODESTREAM LOSSLESS DECODING TEST REPORT
+================================================================================
+
+Test Environment:
+  - Rust OpenJPH: /Users/macair/projects/dicom/openjph-rs
+  - C++ OpenJPH: ojph_expand binary available
+  - Target: Verify lossless decoding of Rust-generated D2/D5 reversible codestreams
+
+================================================================================
+TEST RESULTS
+================================================================================
+
+OVERALL STATUS: ✗ FAILED - REVERSIBLE ENCODING/DECODING NOT LOSSLESS
+
+Details:
+  - All reversible (5/3) tests with DWT decomposition levels > 0 are FAILING
+  - Only test with NO DWT (decomposition level 0) passes
+  - Tests show significant MSE values (up to 2,106,786,600 for 16-bit data)
+
+Test Statistics:
+  Total reversible tests run: 28
+  Passed: 1 (enc_rev53_decomp_0 - no DWT)
+  Failed: 27 (all with decomposition levels > 0)
+  
+  Individual test results:
+  ✓ enc_rev53_decomp_0       MSE=0.0   (No DWT)
+  ✗ enc_rev53_decomp_1       MSE=10922.996
+  ✗ enc_rev53_decomp_2       MSE=10925.977
+  ✗ enc_rev53_decomp_3       MSE=10925.977
+  ✗ enc_rev53_decomp_4       MSE=10925.977
+  ✗ enc_rev53_decomp_5       MSE=10925.977
+  ✗ enc_rev53_64x64          MSE=10922.996
+  ✗ enc_rev53_32x32          MSE=10922.996
+  ✗ enc_rev53_4x4            MSE=10922.996
+  ✗ enc_rev53_1024x4         MSE=10922.996
+  ✗ enc_rev53_4x1024         MSE=10922.996
+  ✗ enc_rev53_256x256        MSE=10922.996
+  ✗ enc_rev53_tiles_33x33_d5 MSE=10922.996
+  ✗ enc_rev53_tiles_33x33_d6 MSE=10925.977
+  ✗ enc_rev53_tall_narrow    MSE=11413.491
+  ✗ enc_rev53_127x93         MSE=10925.977
+  ✗ enc_rev53_10bit_rgb      MSE=97514.46
+  ✗ enc_rev53_12bit_gray     MSE=97514.46
+  ✗ enc_rev53_16bit_rgb      MSE=10873.665
+  ✗ enc_rev53_16bit_gray     MSE=2078828000
+  ✗ dec_rev53_64x64_rgb      MSE=10925.977
+  ✗ dec_rev53_32x32_rgb      MSE=10925.977
+  ✗ dec_rev53_4x4_rgb        MSE=10925.977
+  ✗ dec_rev53_1024x4_rgb     MSE=10925.977
+  ✗ dec_rev53_4x1024_rgb     MSE=2078828000
+  ✗ dec_rev53_gray_tiles     MSE=10925.977
+  ✗ dec_rev53_16bit_rgb      MSE=2106786600
+  ✗ dec_rev53_16bit_gray     MSE=2106786600
+
+================================================================================
+ROOT CAUSE ANALYSIS
+================================================================================
+
+The test failures indicate a BUG IN THE RUST IMPLEMENTATION:
+
+1. SCOPE: Affects reversible (lossless) 5/3 DWT encoding/decoding
+2. PATTERN: Only tests with NO decomposition pass perfectly
+3. MSE RANGE: 10,900-2.1B depending on bit depth and decomposition level
+4. IMPLICATION: Data is being corrupted during DWT processing
+
+Potential areas for investigation:
+- 5/3 filter implementation (forward or inverse transform)
+- DWT level computation or recursion logic
+- Coefficient quantization for reversible mode
+- Memory access patterns (alignment, overflow)
+- Decomposition level iteration
+- Coefficient rounding in reversible mode
+
+================================================================================
+CROSS-PLATFORM TESTING (Rust → C++ decode)
+================================================================================
+
+Status: NOT TESTED (encoding currently fails)
+
+Reason: The Rust encoder itself is producing incorrect codestreams for
+reversible 5/3 with decomposition > 0, so cross-platform testing would
+confirm the same MSE values already seen in internal roundtrip tests.
+
+Recommendation: Fix the Rust reversible DWT implementation first, then
+verify C++ OpenJPH can correctly decode the fixed codestreams.
+
+================================================================================
+SUMMARY
+================================================================================
+
+VERDICT: ✗ FAILS - Reversible D2/D5 codestreams are NOT lossless
+
+The Rust OpenJPH implementation has a critical bug in reversible (5/3) 
+DWT processing that causes data corruption for all decomposition levels > 0.
+
+Next Steps:
+1. Debug the 5/3 filter implementation
+2. Verify DWT reconstruction logic
+3. Check coefficient handling in reversible mode
+4. Once fixed, re-run this test to confirm lossless behavior
+
+MSE Threshold for Lossless: 0.0
+Current Performance: MSE ranges from 10,922 to 2,106,786,600
+Status: CRITICAL - NEEDS IMMEDIATE FIX
+
+================================================================================

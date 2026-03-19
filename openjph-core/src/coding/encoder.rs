@@ -138,8 +138,7 @@ impl VlcEncoder {
                 });
             }
 
-            let avail_bits =
-                8 - (self.last_greater_than_8f as i32) - self.used_bits;
+            let avail_bits = 8 - (self.last_greater_than_8f as i32) - self.used_bits;
             let t = ojph_min(avail_bits, cwd_len);
             self.tmp |= (cwd & ((1 << t) - 1)) << self.used_bits;
             self.used_bits += t;
@@ -224,8 +223,7 @@ impl MsEncoder {
                 });
             }
             let t = ojph_min(self.max_bits - self.used_bits, cwd_len);
-            self.tmp |=
-                ((cwd & ((1u64 << t) - 1)) << self.used_bits) as u32;
+            self.tmp |= ((cwd & ((1u64 << t) - 1)) << self.used_bits) as u32;
             self.used_bits += t;
             cwd >>= t;
             cwd_len -= t;
@@ -251,8 +249,7 @@ impl MsEncoder {
                 if self.pos as usize >= self.buf.len() {
                     return Err(OjphError::Codec {
                         code: 0x00020006,
-                        message: "magnitude sign encoder's buffer is full"
-                            .into(),
+                        message: "magnitude sign encoder's buffer is full".into(),
                     });
                 }
                 self.buf[self.pos as usize] = self.tmp as u8;
@@ -323,11 +320,7 @@ fn terminate_mel_vlc(mel: &mut MelEncoder, vlc: &mut VlcEncoder) -> Result<()> {
 ///
 /// Layout: `[MS bytes] [MEL bytes] [VLC bytes (reversed)]`
 /// The last 12 bits of the buffer carry the interface-locator word.
-fn assemble_output(
-    ms: &MsEncoder,
-    mel: &MelEncoder,
-    vlc: &VlcEncoder,
-) -> EncodeResult {
+fn assemble_output(ms: &MsEncoder, mel: &MelEncoder, vlc: &VlcEncoder) -> EncodeResult {
     let total_len = (ms.pos + mel.pos + vlc.pos) as usize;
     let mut data = vec![0u8; total_len];
 
@@ -336,8 +329,7 @@ fn assemble_output(
 
     // MEL data (forward)
     let mel_start = ms.pos as usize;
-    data[mel_start..mel_start + mel.pos as usize]
-        .copy_from_slice(&mel.buf[..mel.pos as usize]);
+    data[mel_start..mel_start + mel.pos as usize].copy_from_slice(&mel.buf[..mel.pos as usize]);
 
     // VLC data (the backward buffer stores bytes in reverse order)
     let vlc_start = mel_start + mel.pos as usize;
@@ -550,7 +542,11 @@ pub(crate) fn encode_codeblock32(
             }
 
             // sample (x, row 1)
-            let t = if height > 1 { buf[sp + stride as usize] } else { 0 };
+            let t = if height > 1 {
+                buf[sp + stride as usize]
+            } else {
+                0
+            };
             sp += 1;
             let (sig, eq, sv) = prepare_sample32(t, p);
             if sig {
@@ -572,7 +568,11 @@ pub(crate) fn encode_codeblock32(
                 }
 
                 // sample (x+1, row 1)
-                let t = if height > 1 { buf[sp + stride as usize] } else { 0 };
+                let t = if height > 1 {
+                    buf[sp + stride as usize]
+                } else {
+                    0
+                };
                 sp += 1;
                 let (sig, eq, sv) = prepare_sample32(t, p);
                 if sig {
@@ -596,8 +596,7 @@ pub(crate) fn encode_codeblock32(
             lcxp += 1;
             cx_val[lcxp] = ((rho[0] & 8) >> 3) as u8;
 
-            let tuple0 =
-                vlc_tbl0[((c_q0 << 8) + (rho[0] << 4) + eps0) as usize];
+            let tuple0 = vlc_tbl0[((c_q0 << 8) + (rho[0] << 4) + eps0) as usize];
             vlc.encode((tuple0 >> 8) as i32, ((tuple0 >> 4) & 7) as i32)?;
 
             if c_q0 == 0 {
@@ -617,7 +616,11 @@ pub(crate) fn encode_codeblock32(
                     s[4] = sv;
                 }
 
-                let t = if height > 1 { buf[sp + stride as usize] } else { 0 };
+                let t = if height > 1 {
+                    buf[sp + stride as usize]
+                } else {
+                    0
+                };
                 sp += 1;
                 let (sig, eq, sv) = prepare_sample32(t, p);
                 if sig {
@@ -637,7 +640,11 @@ pub(crate) fn encode_codeblock32(
                         s[6] = sv;
                     }
 
-                    let t = if height > 1 { buf[sp + stride as usize] } else { 0 };
+                    let t = if height > 1 {
+                        buf[sp + stride as usize]
+                    } else {
+                        0
+                    };
                     sp += 1;
                     let (sig, eq, sv) = prepare_sample32(t, p);
                     if sig {
@@ -661,12 +668,8 @@ pub(crate) fn encode_codeblock32(
                 lcxp += 1;
                 cx_val[lcxp] = ((rho[1] & 8) >> 3) as u8;
 
-                let tuple1 = vlc_tbl0
-                    [((c_q1 << 8) + (rho[1] << 4) + eps1) as usize];
-                vlc.encode(
-                    (tuple1 >> 8) as i32,
-                    ((tuple1 >> 4) & 7) as i32,
-                )?;
+                let tuple1 = vlc_tbl0[((c_q1 << 8) + (rho[1] << 4) + eps1) as usize];
+                vlc.encode((tuple1 >> 8) as i32, ((tuple1 >> 4) & 7) as i32)?;
 
                 if c_q1 == 0 {
                     mel.encode(rho[1] != 0)?;
@@ -680,9 +683,7 @@ pub(crate) fn encode_codeblock32(
                 mel.encode(ojph_min(u_q0, u_q1) > 2)?;
             }
 
-            encode_uvlc32(
-                &mut vlc, uvlc_tbl, u_q0, u_q1,
-            )?;
+            encode_uvlc32(&mut vlc, uvlc_tbl, u_q0, u_q1)?;
 
             // Prepare for next quad pair
             c_q0 = (rho[1] >> 1) | (rho[1] & 1);
@@ -700,13 +701,11 @@ pub(crate) fn encode_codeblock32(
         let mut y: u32 = 2;
         while y < height {
             let mut lep: usize = 0;
-            let mut max_e =
-                ojph_max(e_val[0] as i32, e_val[1] as i32) - 1;
+            let mut max_e = ojph_max(e_val[0] as i32, e_val[1] as i32) - 1;
             e_val[0] = 0;
 
             let mut lcxp: usize = 0;
-            let mut c_q0: i32 =
-                cx_val[0] as i32 + ((cx_val[1] as i32) << 2);
+            let mut c_q0: i32 = cx_val[0] as i32 + ((cx_val[1] as i32) << 2);
             cx_val[0] = 0;
 
             let row_offset = (y * stride) as usize;
@@ -785,25 +784,18 @@ pub(crate) fn encode_codeblock32(
 
                 let eps0 = compute_eps(u_q0, &e_q, 0, e_qmax[0]);
 
-                e_val[lep] =
-                    ojph_max(e_val[lep] as i32, e_q[1]) as u8;
+                e_val[lep] = ojph_max(e_val[lep] as i32, e_q[1]) as u8;
                 lep += 1;
-                max_e =
-                    ojph_max(e_val[lep] as i32, e_val[lep + 1] as i32) - 1;
+                max_e = ojph_max(e_val[lep] as i32, e_val[lep + 1] as i32) - 1;
                 e_val[lep] = e_q[3] as u8;
 
                 cx_val[lcxp] |= ((rho[0] & 2) >> 1) as u8;
                 lcxp += 1;
-                let mut c_q1: i32 =
-                    cx_val[lcxp] as i32 + ((cx_val[lcxp + 1] as i32) << 2);
+                let mut c_q1: i32 = cx_val[lcxp] as i32 + ((cx_val[lcxp + 1] as i32) << 2);
                 cx_val[lcxp] = ((rho[0] & 8) >> 3) as u8;
 
-                let tuple0 = vlc_tbl1
-                    [((c_q0 << 8) + (rho[0] << 4) + eps0) as usize];
-                vlc.encode(
-                    (tuple0 >> 8) as i32,
-                    ((tuple0 >> 4) & 7) as i32,
-                )?;
+                let tuple0 = vlc_tbl1[((c_q0 << 8) + (rho[0] << 4) + eps0) as usize];
+                vlc.encode((tuple0 >> 8) as i32, ((tuple0 >> 4) & 7) as i32)?;
 
                 if c_q0 == 0 {
                     mel.encode(rho[0] != 0)?;
@@ -872,35 +864,24 @@ pub(crate) fn encode_codeblock32(
 
                     let eps1 = compute_eps(u_q1, &e_q, 4, e_qmax[1]);
 
-                    e_val[lep] =
-                        ojph_max(e_val[lep] as i32, e_q[5]) as u8;
+                    e_val[lep] = ojph_max(e_val[lep] as i32, e_q[5]) as u8;
                     lep += 1;
-                    max_e = ojph_max(
-                        e_val[lep] as i32,
-                        e_val[lep + 1] as i32,
-                    ) - 1;
+                    max_e = ojph_max(e_val[lep] as i32, e_val[lep + 1] as i32) - 1;
                     e_val[lep] = e_q[7] as u8;
 
                     cx_val[lcxp] |= ((rho[1] & 2) >> 1) as u8;
                     lcxp += 1;
-                    c_q0 = cx_val[lcxp] as i32
-                        + ((cx_val[lcxp + 1] as i32) << 2);
+                    c_q0 = cx_val[lcxp] as i32 + ((cx_val[lcxp + 1] as i32) << 2);
                     cx_val[lcxp] = ((rho[1] & 8) >> 3) as u8;
 
-                    let tuple1 = vlc_tbl1
-                        [((c_q1 << 8) + (rho[1] << 4) + eps1) as usize];
-                    vlc.encode(
-                        (tuple1 >> 8) as i32,
-                        ((tuple1 >> 4) & 7) as i32,
-                    )?;
+                    let tuple1 = vlc_tbl1[((c_q1 << 8) + (rho[1] << 4) + eps1) as usize];
+                    vlc.encode((tuple1 >> 8) as i32, ((tuple1 >> 4) & 7) as i32)?;
 
                     if c_q1 == 0 {
                         mel.encode(rho[1] != 0)?;
                     }
 
-                    encode_quad_ms32(
-                        &mut ms, rho[1], uq1, tuple1, &s, 4,
-                    )?;
+                    encode_quad_ms32(&mut ms, rho[1], uq1, tuple1, &s, 4)?;
                 }
 
                 // UVLC (non-initial rows always use direct encoding)
@@ -1078,7 +1059,11 @@ pub(crate) fn encode_codeblock64(
                 s[0] = sv;
             }
 
-            let t = if height > 1 { buf[sp + stride as usize] } else { 0 };
+            let t = if height > 1 {
+                buf[sp + stride as usize]
+            } else {
+                0
+            };
             sp += 1;
             let (sig, eq, sv) = prepare_sample64(t, p);
             if sig {
@@ -1098,7 +1083,11 @@ pub(crate) fn encode_codeblock64(
                     s[2] = sv;
                 }
 
-                let t = if height > 1 { buf[sp + stride as usize] } else { 0 };
+                let t = if height > 1 {
+                    buf[sp + stride as usize]
+                } else {
+                    0
+                };
                 sp += 1;
                 let (sig, eq, sv) = prepare_sample64(t, p);
                 if sig {
@@ -1122,8 +1111,7 @@ pub(crate) fn encode_codeblock64(
             lcxp += 1;
             cx_val[lcxp] = ((rho[0] & 8) >> 3) as u8;
 
-            let tuple0 =
-                vlc_tbl0[((c_q0 << 8) + (rho[0] << 4) + eps0) as usize];
+            let tuple0 = vlc_tbl0[((c_q0 << 8) + (rho[0] << 4) + eps0) as usize];
             vlc.encode((tuple0 >> 8) as i32, ((tuple0 >> 4) & 7) as i32)?;
 
             if c_q0 == 0 {
@@ -1143,7 +1131,11 @@ pub(crate) fn encode_codeblock64(
                     s[4] = sv;
                 }
 
-                let t = if height > 1 { buf[sp + stride as usize] } else { 0 };
+                let t = if height > 1 {
+                    buf[sp + stride as usize]
+                } else {
+                    0
+                };
                 sp += 1;
                 let (sig, eq, sv) = prepare_sample64(t, p);
                 if sig {
@@ -1163,7 +1155,11 @@ pub(crate) fn encode_codeblock64(
                         s[6] = sv;
                     }
 
-                    let t = if height > 1 { buf[sp + stride as usize] } else { 0 };
+                    let t = if height > 1 {
+                        buf[sp + stride as usize]
+                    } else {
+                        0
+                    };
                     sp += 1;
                     let (sig, eq, sv) = prepare_sample64(t, p);
                     if sig {
@@ -1187,12 +1183,8 @@ pub(crate) fn encode_codeblock64(
                 lcxp += 1;
                 cx_val[lcxp] = ((rho[1] & 8) >> 3) as u8;
 
-                let tuple1 = vlc_tbl0
-                    [((c_q1 << 8) + (rho[1] << 4) + eps1) as usize];
-                vlc.encode(
-                    (tuple1 >> 8) as i32,
-                    ((tuple1 >> 4) & 7) as i32,
-                )?;
+                let tuple1 = vlc_tbl0[((c_q1 << 8) + (rho[1] << 4) + eps1) as usize];
+                vlc.encode((tuple1 >> 8) as i32, ((tuple1 >> 4) & 7) as i32)?;
 
                 if c_q1 == 0 {
                     mel.encode(rho[1] != 0)?;
@@ -1223,13 +1215,11 @@ pub(crate) fn encode_codeblock64(
         let mut y: u32 = 2;
         while y < height {
             let mut lep: usize = 0;
-            let mut max_e =
-                ojph_max(e_val[0] as i32, e_val[1] as i32) - 1;
+            let mut max_e = ojph_max(e_val[0] as i32, e_val[1] as i32) - 1;
             e_val[0] = 0;
 
             let mut lcxp: usize = 0;
-            let mut c_q0: i32 =
-                cx_val[0] as i32 + ((cx_val[1] as i32) << 2);
+            let mut c_q0: i32 = cx_val[0] as i32 + ((cx_val[1] as i32) << 2);
             cx_val[0] = 0;
 
             let row_offset = (y as usize) * (stride as usize);
@@ -1308,25 +1298,18 @@ pub(crate) fn encode_codeblock64(
 
                 let eps0 = compute_eps(u_q0, &e_q, 0, e_qmax[0]);
 
-                e_val[lep] =
-                    ojph_max(e_val[lep] as i32, e_q[1]) as u8;
+                e_val[lep] = ojph_max(e_val[lep] as i32, e_q[1]) as u8;
                 lep += 1;
-                max_e =
-                    ojph_max(e_val[lep] as i32, e_val[lep + 1] as i32) - 1;
+                max_e = ojph_max(e_val[lep] as i32, e_val[lep + 1] as i32) - 1;
                 e_val[lep] = e_q[3] as u8;
 
                 cx_val[lcxp] |= ((rho[0] & 2) >> 1) as u8;
                 lcxp += 1;
-                let mut c_q1: i32 =
-                    cx_val[lcxp] as i32 + ((cx_val[lcxp + 1] as i32) << 2);
+                let mut c_q1: i32 = cx_val[lcxp] as i32 + ((cx_val[lcxp + 1] as i32) << 2);
                 cx_val[lcxp] = ((rho[0] & 8) >> 3) as u8;
 
-                let tuple0 = vlc_tbl1
-                    [((c_q0 << 8) + (rho[0] << 4) + eps0) as usize];
-                vlc.encode(
-                    (tuple0 >> 8) as i32,
-                    ((tuple0 >> 4) & 7) as i32,
-                )?;
+                let tuple0 = vlc_tbl1[((c_q0 << 8) + (rho[0] << 4) + eps0) as usize];
+                vlc.encode((tuple0 >> 8) as i32, ((tuple0 >> 4) & 7) as i32)?;
 
                 if c_q0 == 0 {
                     mel.encode(rho[0] != 0)?;
@@ -1395,35 +1378,24 @@ pub(crate) fn encode_codeblock64(
 
                     let eps1 = compute_eps(u_q1, &e_q, 4, e_qmax[1]);
 
-                    e_val[lep] =
-                        ojph_max(e_val[lep] as i32, e_q[5]) as u8;
+                    e_val[lep] = ojph_max(e_val[lep] as i32, e_q[5]) as u8;
                     lep += 1;
-                    max_e = ojph_max(
-                        e_val[lep] as i32,
-                        e_val[lep + 1] as i32,
-                    ) - 1;
+                    max_e = ojph_max(e_val[lep] as i32, e_val[lep + 1] as i32) - 1;
                     e_val[lep] = e_q[7] as u8;
 
                     cx_val[lcxp] |= ((rho[1] & 2) >> 1) as u8;
                     lcxp += 1;
-                    c_q0 = cx_val[lcxp] as i32
-                        + ((cx_val[lcxp + 1] as i32) << 2);
+                    c_q0 = cx_val[lcxp] as i32 + ((cx_val[lcxp + 1] as i32) << 2);
                     cx_val[lcxp] = ((rho[1] & 8) >> 3) as u8;
 
-                    let tuple1 = vlc_tbl1
-                        [((c_q1 << 8) + (rho[1] << 4) + eps1) as usize];
-                    vlc.encode(
-                        (tuple1 >> 8) as i32,
-                        ((tuple1 >> 4) & 7) as i32,
-                    )?;
+                    let tuple1 = vlc_tbl1[((c_q1 << 8) + (rho[1] << 4) + eps1) as usize];
+                    vlc.encode((tuple1 >> 8) as i32, ((tuple1 >> 4) & 7) as i32)?;
 
                     if c_q1 == 0 {
                         mel.encode(rho[1] != 0)?;
                     }
 
-                    encode_quad_ms64(
-                        &mut ms, rho[1], uq1, tuple1, &s, 4,
-                    )?;
+                    encode_quad_ms64(&mut ms, rho[1], uq1, tuple1, &s, 4)?;
                 }
 
                 // UVLC (non-initial rows, 64-bit: includes ext)
@@ -1483,8 +1455,7 @@ mod tests {
         let height = 4u32;
         let stride = width;
         let buf = vec![0u32; (stride * height) as usize];
-        let result =
-            encode_codeblock32(&buf, 0, 1, width, height, stride).unwrap();
+        let result = encode_codeblock32(&buf, 0, 1, width, height, stride).unwrap();
         assert!(result.length > 0);
         assert_eq!(result.data.len(), result.length as usize);
     }
@@ -1496,8 +1467,7 @@ mod tests {
         let height = 4u32;
         let stride = width;
         let buf = vec![0u64; (stride * height) as usize];
-        let result =
-            encode_codeblock64(&buf, 0, 1, width, height, stride).unwrap();
+        let result = encode_codeblock64(&buf, 0, 1, width, height, stride).unwrap();
         assert!(result.length > 0);
         assert_eq!(result.data.len(), result.length as usize);
     }
@@ -1513,10 +1483,7 @@ mod tests {
     /// 2x2 codeblock with non-zero data.
     #[test]
     fn encode_2x2_32() {
-        let buf = vec![
-            0x10000000u32, 0x20000000,
-            0x30000000,    0x40000000,
-        ];
+        let buf = vec![0x10000000u32, 0x20000000, 0x30000000, 0x40000000];
         let result = encode_codeblock32(&buf, 0, 1, 2, 2, 2).unwrap();
         assert!(result.length > 0);
     }
@@ -1531,8 +1498,7 @@ mod tests {
         for (i, v) in buf.iter_mut().enumerate() {
             *v = ((i as u32) << 20) | (((i & 1) as u32) << 31);
         }
-        let result =
-            encode_codeblock32(&buf, 0, 1, width, height, stride).unwrap();
+        let result = encode_codeblock32(&buf, 0, 1, width, height, stride).unwrap();
         assert!(result.length > 0);
     }
 

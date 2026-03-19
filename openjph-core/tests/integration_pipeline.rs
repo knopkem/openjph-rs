@@ -5,18 +5,13 @@
 mod common;
 
 use openjph_core::codestream::Codestream;
-use openjph_core::file::{MemOutfile, MemInfile};
+use openjph_core::file::{MemInfile, MemOutfile};
 use openjph_core::types::{Point, Size};
 
-use common::mse_pae::{ImgInfo, find_mse_pae};
+use common::mse_pae::{find_mse_pae, ImgInfo};
 
 /// Helper: encode a single-component 8-bit unsigned image to a J2K byte buffer.
-fn encode_8bit_gray(
-    width: u32,
-    height: u32,
-    pixels: &[i32],
-    num_decomps: u32,
-) -> Vec<u8> {
+fn encode_8bit_gray(width: u32, height: u32, pixels: &[i32], num_decomps: u32) -> Vec<u8> {
     let mut cs = Codestream::new();
 
     // Configure SIZ
@@ -86,13 +81,24 @@ fn integration_roundtrip_constant_image() {
 
     // Reversible coding should be lossless
     let img_orig = ImgInfo::from_samples(
-        width as usize, height as usize, 8, false, vec![pixels.clone()],
+        width as usize,
+        height as usize,
+        8,
+        false,
+        vec![pixels.clone()],
     );
     let img_dec = ImgInfo::from_samples(
-        width as usize, height as usize, 8, false, vec![decoded.clone()],
+        width as usize,
+        height as usize,
+        8,
+        false,
+        vec![decoded.clone()],
     );
     let results = find_mse_pae(&img_orig, &img_dec);
-    assert_eq!(results[0].mse, 0.0, "reversible coding must be lossless for constant image");
+    assert_eq!(
+        results[0].mse, 0.0,
+        "reversible coding must be lossless for constant image"
+    );
     assert_eq!(results[0].pae, 0);
 }
 
@@ -116,10 +122,18 @@ fn integration_roundtrip_gradient_image() {
     assert_eq!(decoded.len(), pixels.len());
 
     let img_orig = ImgInfo::from_samples(
-        width as usize, height as usize, 8, false, vec![pixels.clone()],
+        width as usize,
+        height as usize,
+        8,
+        false,
+        vec![pixels.clone()],
     );
     let img_dec = ImgInfo::from_samples(
-        width as usize, height as usize, 8, false, vec![decoded.clone()],
+        width as usize,
+        height as usize,
+        8,
+        false,
+        vec![decoded.clone()],
     );
     let results = find_mse_pae(&img_orig, &img_dec);
     assert_eq!(
@@ -143,10 +157,18 @@ fn integration_roundtrip_no_dwt() {
     assert_eq!(decoded.len(), pixels.len());
 
     let img_orig = ImgInfo::from_samples(
-        width as usize, height as usize, 8, false, vec![pixels.clone()],
+        width as usize,
+        height as usize,
+        8,
+        false,
+        vec![pixels.clone()],
     );
     let img_dec = ImgInfo::from_samples(
-        width as usize, height as usize, 8, false, vec![decoded.clone()],
+        width as usize,
+        height as usize,
+        8,
+        false,
+        vec![decoded.clone()],
     );
     let results = find_mse_pae(&img_orig, &img_dec);
     assert_eq!(results[0].mse, 0.0, "no-DWT roundtrip must be lossless");
@@ -157,11 +179,13 @@ fn integration_mse_pae_api() {
     // Test that the MSE/PAE API works correctly with known differences
     let width = 4usize;
     let height = 4usize;
-    let original = vec![100, 110, 120, 130, 140, 150, 160, 170,
-                        180, 190, 200, 210, 220, 230, 240, 250];
+    let original = vec![
+        100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250,
+    ];
     // Introduce known errors
-    let decoded  = vec![101, 110, 118, 130, 140, 150, 160, 170,
-                        180, 190, 200, 210, 220, 230, 240, 245];
+    let decoded = vec![
+        101, 110, 118, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 245,
+    ];
 
     let img1 = ImgInfo::from_samples(width, height, 8, false, vec![original]);
     let img2 = ImgInfo::from_samples(width, height, 8, false, vec![decoded]);
@@ -240,7 +264,13 @@ fn integration_roundtrip_no_dwt_varied_values() {
     let j2k = encode_8bit_gray(width, height, &pixels, 0);
     let decoded = decode_8bit_gray(&j2k, width, height);
 
-    let img_orig = ImgInfo::from_samples(width as usize, height as usize, 8, false, vec![pixels.clone()]);
+    let img_orig = ImgInfo::from_samples(
+        width as usize,
+        height as usize,
+        8,
+        false,
+        vec![pixels.clone()],
+    );
     let img_dec = ImgInfo::from_samples(width as usize, height as usize, 8, false, vec![decoded]);
     let results = find_mse_pae(&img_orig, &img_dec);
     assert_eq!(results[0].pae, 0, "no-DWT varied values must be lossless");
@@ -252,16 +282,19 @@ fn integration_roundtrip_dwt1_small() {
     let width = 4u32;
     let height = 4u32;
     let pixels = vec![
-        100, 110, 120, 130,
-        140, 150, 160, 170,
-        180, 190, 200, 210,
-        220, 230, 240, 250,
+        100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250,
     ];
 
     let j2k = encode_8bit_gray(width, height, &pixels, 1);
     let decoded = decode_8bit_gray(&j2k, width, height);
 
-    let img_orig = ImgInfo::from_samples(width as usize, height as usize, 8, false, vec![pixels.clone()]);
+    let img_orig = ImgInfo::from_samples(
+        width as usize,
+        height as usize,
+        8,
+        false,
+        vec![pixels.clone()],
+    );
     let img_dec = ImgInfo::from_samples(width as usize, height as usize, 8, false, vec![decoded]);
     let results = find_mse_pae(&img_orig, &img_dec);
     assert_eq!(results[0].pae, 0, "1-level DWT on 4x4 must be lossless");

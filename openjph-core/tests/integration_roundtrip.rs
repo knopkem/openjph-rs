@@ -74,12 +74,7 @@ fn encode_multicomp(
     outfile.get_data().to_vec()
 }
 
-fn decode_multicomp(
-    j2k_data: &[u8],
-    width: u32,
-    height: u32,
-    num_comps: u32,
-) -> Vec<Vec<i32>> {
+fn decode_multicomp(j2k_data: &[u8], width: u32, height: u32, num_comps: u32) -> Vec<Vec<i32>> {
     let mut cs = Codestream::new();
     let mut infile = MemInfile::new(j2k_data);
     cs.read_headers(&mut infile).unwrap();
@@ -108,20 +103,30 @@ fn verify_lossless(
     decoded: &[Vec<i32>],
 ) {
     let img_orig = ImgInfo::from_samples(
-        width as usize, height as usize, bit_depth, is_signed, original.to_vec(),
+        width as usize,
+        height as usize,
+        bit_depth,
+        is_signed,
+        original.to_vec(),
     );
     let img_dec = ImgInfo::from_samples(
-        width as usize, height as usize, bit_depth, is_signed, decoded.to_vec(),
+        width as usize,
+        height as usize,
+        bit_depth,
+        is_signed,
+        decoded.to_vec(),
     );
     let results = find_mse_pae(&img_orig, &img_dec);
     for (c, res) in results.iter().enumerate() {
         assert_eq!(
             res.mse, 0.0,
-            "component {}: lossless roundtrip failed (MSE={})", c, res.mse
+            "component {}: lossless roundtrip failed (MSE={})",
+            c, res.mse
         );
         assert_eq!(
             res.pae, 0,
-            "component {}: lossless roundtrip failed (PAE={})", c, res.pae
+            "component {}: lossless roundtrip failed (PAE={})",
+            c, res.pae
         );
     }
 }
@@ -137,10 +142,18 @@ fn verify_lossy(
     max_pae: u32,
 ) {
     let img_orig = ImgInfo::from_samples(
-        width as usize, height as usize, bit_depth, is_signed, original.to_vec(),
+        width as usize,
+        height as usize,
+        bit_depth,
+        is_signed,
+        original.to_vec(),
     );
     let img_dec = ImgInfo::from_samples(
-        width as usize, height as usize, bit_depth, is_signed, decoded.to_vec(),
+        width as usize,
+        height as usize,
+        bit_depth,
+        is_signed,
+        decoded.to_vec(),
     );
     let results = find_mse_pae(&img_orig, &img_dec);
     let range = ((1u64 << bit_depth) - 1) as f64;
@@ -149,12 +162,18 @@ fn verify_lossy(
         assert!(
             (res.mse as f64) < max_mse,
             "component {}: MSE {} exceeds max {} (ratio {})",
-            c, res.mse, max_mse, max_mse_ratio
+            c,
+            res.mse,
+            max_mse,
+            max_mse_ratio
         );
         if max_pae > 0 {
             assert!(
                 res.pae <= max_pae,
-                "component {}: PAE {} exceeds max {}", c, res.pae, max_pae
+                "component {}: PAE {} exceeds max {}",
+                c,
+                res.pae,
+                max_pae
             );
         }
     }
@@ -205,7 +224,11 @@ fn gen_checkerboard_gray(w: u32, h: u32, bit_depth: u32, block_sz: u32) -> Vec<V
         for x in 0..w {
             let bx = x / block_sz;
             let by = y / block_sz;
-            pix.push(if (bx + by) % 2 == 0 { max_val / 4 } else { max_val * 3 / 4 });
+            pix.push(if (bx + by) % 2 == 0 {
+                max_val / 4
+            } else {
+                max_val * 3 / 4
+            });
         }
     }
     vec![pix]
@@ -300,7 +323,9 @@ fn roundtrip_lossy_rgb_gradient_8bit() {
     let w = 64;
     let h = 64;
     let comps = gen_gradient_rgb(w, h, 8);
-    let j2k = encode_multicomp(w, h, 3, 8, false, false, true, 5, 64, 64, 0, 0, 0.01, &comps);
+    let j2k = encode_multicomp(
+        w, h, 3, 8, false, false, true, 5, 64, 64, 0, 0, 0.01, &comps,
+    );
     let decoded = decode_multicomp(&j2k, w, h, 3);
     // 1% of range² = 0.01 * 255² ≈ 650
     verify_lossy(w, h, 8, false, &comps, &decoded, 0.01, 255);
@@ -315,7 +340,9 @@ fn roundtrip_lossless_gray_16bit() {
     let w = 32;
     let h = 32;
     let comps = gen_gradient_gray(w, h, 16);
-    let j2k = encode_multicomp(w, h, 1, 16, false, true, false, 5, 64, 64, 0, 0, 0.0, &comps);
+    let j2k = encode_multicomp(
+        w, h, 1, 16, false, true, false, 5, 64, 64, 0, 0, 0.0, &comps,
+    );
     let decoded = decode_multicomp(&j2k, w, h, 1);
     verify_lossless(w, h, 16, false, &comps, &decoded);
 }
@@ -335,7 +362,9 @@ fn roundtrip_lossy_gray_16bit() {
     let w = 32;
     let h = 32;
     let comps = gen_gradient_gray(w, h, 16);
-    let j2k = encode_multicomp(w, h, 1, 16, false, false, false, 5, 64, 64, 0, 0, 0.01, &comps);
+    let j2k = encode_multicomp(
+        w, h, 1, 16, false, false, false, 5, 64, 64, 0, 0, 0.01, &comps,
+    );
     let decoded = decode_multicomp(&j2k, w, h, 1);
     verify_lossy(w, h, 16, false, &comps, &decoded, 0.01, 65535);
 }
@@ -349,7 +378,9 @@ fn roundtrip_lossless_gray_10bit() {
     let w = 32;
     let h = 32;
     let comps = gen_gradient_gray(w, h, 10);
-    let j2k = encode_multicomp(w, h, 1, 10, false, true, false, 4, 64, 64, 0, 0, 0.0, &comps);
+    let j2k = encode_multicomp(
+        w, h, 1, 10, false, true, false, 4, 64, 64, 0, 0, 0.0, &comps,
+    );
     let decoded = decode_multicomp(&j2k, w, h, 1);
     verify_lossless(w, h, 10, false, &comps, &decoded);
 }
@@ -359,7 +390,9 @@ fn roundtrip_lossless_gray_12bit() {
     let w = 32;
     let h = 32;
     let comps = gen_gradient_gray(w, h, 12);
-    let j2k = encode_multicomp(w, h, 1, 12, false, true, false, 4, 64, 64, 0, 0, 0.0, &comps);
+    let j2k = encode_multicomp(
+        w, h, 1, 12, false, true, false, 4, 64, 64, 0, 0, 0.0, &comps,
+    );
     let decoded = decode_multicomp(&j2k, w, h, 1);
     verify_lossless(w, h, 12, false, &comps, &decoded);
 }
@@ -417,7 +450,9 @@ fn roundtrip_lossless_tiles_rgb() {
     let w = 64;
     let h = 64;
     let comps = gen_gradient_rgb(w, h, 8);
-    let j2k = encode_multicomp(w, h, 3, 8, false, true, true, 3, 64, 64, 33, 33, 0.0, &comps);
+    let j2k = encode_multicomp(
+        w, h, 3, 8, false, true, true, 3, 64, 64, 33, 33, 0.0, &comps,
+    );
     let decoded = decode_multicomp(&j2k, w, h, 3);
     verify_lossless(w, h, 8, false, &comps, &decoded);
 }
@@ -427,7 +462,9 @@ fn roundtrip_lossy_tiles_rgb() {
     let w = 64;
     let h = 64;
     let comps = gen_gradient_rgb(w, h, 8);
-    let j2k = encode_multicomp(w, h, 3, 8, false, false, true, 3, 64, 64, 33, 33, 0.01, &comps);
+    let j2k = encode_multicomp(
+        w, h, 3, 8, false, false, true, 3, 64, 64, 33, 33, 0.01, &comps,
+    );
     let decoded = decode_multicomp(&j2k, w, h, 3);
     verify_lossy(w, h, 8, false, &comps, &decoded, 0.01, 255);
 }
@@ -437,7 +474,9 @@ fn roundtrip_lossless_tiles_gray() {
     let w = 64;
     let h = 64;
     let comps = gen_gradient_gray(w, h, 8);
-    let j2k = encode_multicomp(w, h, 1, 8, false, true, false, 3, 64, 64, 33, 33, 0.0, &comps);
+    let j2k = encode_multicomp(
+        w, h, 1, 8, false, true, false, 3, 64, 64, 33, 33, 0.0, &comps,
+    );
     let decoded = decode_multicomp(&j2k, w, h, 1);
     verify_lossless(w, h, 8, false, &comps, &decoded);
 }
@@ -573,7 +612,9 @@ fn roundtrip_lossy_qstep_001() {
     let w = 64;
     let h = 64;
     let comps = gen_gradient_rgb(w, h, 8);
-    let j2k = encode_multicomp(w, h, 3, 8, false, false, true, 5, 64, 64, 0, 0, 0.001, &comps);
+    let j2k = encode_multicomp(
+        w, h, 3, 8, false, false, true, 5, 64, 64, 0, 0, 0.001, &comps,
+    );
     let decoded = decode_multicomp(&j2k, w, h, 3);
     verify_lossy(w, h, 8, false, &comps, &decoded, 0.001, 128);
 }
@@ -583,7 +624,9 @@ fn roundtrip_lossy_qstep_01() {
     let w = 64;
     let h = 64;
     let comps = gen_gradient_rgb(w, h, 8);
-    let j2k = encode_multicomp(w, h, 3, 8, false, false, true, 5, 64, 64, 0, 0, 0.01, &comps);
+    let j2k = encode_multicomp(
+        w, h, 3, 8, false, false, true, 5, 64, 64, 0, 0, 0.01, &comps,
+    );
     let decoded = decode_multicomp(&j2k, w, h, 3);
     verify_lossy(w, h, 8, false, &comps, &decoded, 0.01, 255);
 }
@@ -641,7 +684,9 @@ fn roundtrip_lossy_256x256_rgb() {
     let w = 256;
     let h = 256;
     let comps = gen_gradient_rgb(w, h, 8);
-    let j2k = encode_multicomp(w, h, 3, 8, false, false, true, 5, 64, 64, 0, 0, 0.01, &comps);
+    let j2k = encode_multicomp(
+        w, h, 3, 8, false, false, true, 5, 64, 64, 0, 0, 0.01, &comps,
+    );
     let decoded = decode_multicomp(&j2k, w, h, 3);
     verify_lossy(w, h, 8, false, &comps, &decoded, 0.01, 255);
 }

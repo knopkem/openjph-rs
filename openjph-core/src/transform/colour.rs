@@ -730,7 +730,15 @@ mod tests {
         let mut cb_buf = make_i32_linebuf(&mut cb10);
         let mut cr_buf = make_i32_linebuf(&mut cr10);
 
-        gen_rct_forward(&r_buf, &g_buf, &b_buf, &mut y_buf, &mut cb_buf, &mut cr_buf, 4);
+        gen_rct_forward(
+            &r_buf,
+            &g_buf,
+            &b_buf,
+            &mut y_buf,
+            &mut cb_buf,
+            &mut cr_buf,
+            4,
+        );
 
         let mut r10b = [0i32; 4];
         let mut g10b = [0i32; 4];
@@ -742,7 +750,15 @@ mod tests {
         let mut g_buf2 = make_i32_linebuf(&mut g10b);
         let mut b_buf2 = make_i32_linebuf(&mut b10b);
 
-        gen_rct_backward(&y_buf2, &cb_buf2, &cr_buf2, &mut r_buf2, &mut g_buf2, &mut b_buf2, 4);
+        gen_rct_backward(
+            &y_buf2,
+            &cb_buf2,
+            &cr_buf2,
+            &mut r_buf2,
+            &mut g_buf2,
+            &mut b_buf2,
+            4,
+        );
 
         assert_eq!(r10b, [1023, 1023, 1023, 1023]);
         assert_eq!(g10b, [512, 512, 512, 512]);
@@ -786,9 +802,15 @@ mod tests {
 
     #[test]
     fn rct_forward_backward_many_pixels() {
-        let mut r_data = [0i32, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 255, 128, 64];
-        let mut g_data = [0i32, 5, 15, 25, 35, 45, 55, 65, 75, 85, 110, 160, 190, 245, 130, 60];
-        let mut b_data = [0i32, 20, 10, 35, 45, 55, 50, 80, 70, 95, 120, 140, 180, 250, 132, 58];
+        let mut r_data = [
+            0i32, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 255, 128, 64,
+        ];
+        let mut g_data = [
+            0i32, 5, 15, 25, 35, 45, 55, 65, 75, 85, 110, 160, 190, 245, 130, 60,
+        ];
+        let mut b_data = [
+            0i32, 20, 10, 35, 45, 55, 50, 80, 70, 95, 120, 140, 180, 250, 132, 58,
+        ];
         let orig_r = r_data;
         let orig_g = g_data;
         let orig_b = b_data;
@@ -910,16 +932,14 @@ mod tests {
     #[test]
     fn ict_forward_backward_many_pixels() {
         let r: [f32; 16] = [
-            0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7,
-            0.8, 0.9, 1.0, 0.25, 0.75, 0.33, 0.66, 0.5,
+            0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.25, 0.75, 0.33, 0.66, 0.5,
         ];
         let g: [f32; 16] = [
-            0.0, 0.2, 0.1, 0.4, 0.3, 0.6, 0.5, 0.8,
-            0.7, 1.0, 0.9, 0.35, 0.65, 0.44, 0.55, 0.5,
+            0.0, 0.2, 0.1, 0.4, 0.3, 0.6, 0.5, 0.8, 0.7, 1.0, 0.9, 0.35, 0.65, 0.44, 0.55, 0.5,
         ];
         let b: [f32; 16] = [
-            0.0, 0.3, 0.15, 0.35, 0.45, 0.55, 0.65, 0.75,
-            0.85, 0.95, 0.8, 0.45, 0.55, 0.22, 0.77, 0.5,
+            0.0, 0.3, 0.15, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95, 0.8, 0.45, 0.55, 0.22, 0.77,
+            0.5,
         ];
 
         let mut y = [0.0f32; 16];
@@ -955,7 +975,10 @@ mod tests {
         gen_ict_forward(&r, &g, &b, &mut y, &mut cb, &mut cr, 4);
 
         for i in 0..4 {
-            assert!((y[i] - r[i]).abs() < 1e-5, "Y[{i}] should equal input for gray");
+            assert!(
+                (y[i] - r[i]).abs() < 1e-5,
+                "Y[{i}] should equal input for gray"
+            );
             assert!(cb[i].abs() < 1e-5, "Cb[{i}] should be ~0 for gray");
             assert!(cr[i].abs() < 1e-5, "Cr[{i}] should be ~0 for gray");
         }
@@ -1097,6 +1120,9 @@ mod tests {
         // sample 0: (0 - 128) / 256 = -0.5
         assert!((float_data[1] - (-0.5)).abs() < 1e-6, "0 → -0.5");
         // sample 255: (255 - 128) / 256 = 127/256 ≈ 0.49609375
-        assert!((float_data[2] - (127.0 / 256.0)).abs() < 1e-6, "255 → 127/256");
+        assert!(
+            (float_data[2] - (127.0 / 256.0)).abs() < 1e-6,
+            "255 → 127/256"
+        );
     }
 }

@@ -312,7 +312,9 @@ pub(crate) fn sse2_rev_vert_step(
         || (aug.flags & LFT_32BIT) != 0
         || (other.flags & LFT_32BIT) != 0
     {
-        unsafe { sse2_rev_vert_step32(s, sig, other, aug, repeat, synthesis); }
+        unsafe {
+            sse2_rev_vert_step32(s, sig, other, aug, repeat, synthesis);
+        }
     } else {
         super::super::wavelet::gen_rev_vert_step64(s, sig, other, aug, repeat, synthesis);
     }
@@ -332,7 +334,9 @@ pub(crate) fn avx2_rev_vert_step(
         || (aug.flags & LFT_32BIT) != 0
         || (other.flags & LFT_32BIT) != 0
     {
-        unsafe { avx2_rev_vert_step32(s, sig, other, aug, repeat, synthesis); }
+        unsafe {
+            avx2_rev_vert_step32(s, sig, other, aug, repeat, synthesis);
+        }
     } else {
         super::super::wavelet::gen_rev_vert_step64(s, sig, other, aug, repeat, synthesis);
     }
@@ -353,9 +357,13 @@ pub(crate) fn sse2_irv_vert_step(
     synthesis: bool,
 ) {
     let mut a = s.irv().a;
-    if synthesis { a = -a; }
+    if synthesis {
+        a = -a;
+    }
 
-    unsafe { sse2_irv_vert_step_inner(a, sig, other, aug, repeat); }
+    unsafe {
+        sse2_irv_vert_step_inner(a, sig, other, aug, repeat);
+    }
 }
 
 #[cfg(target_arch = "x86_64")]
@@ -405,9 +413,13 @@ pub(crate) fn avx2_irv_vert_step(
     synthesis: bool,
 ) {
     let mut a = s.irv().a;
-    if synthesis { a = -a; }
+    if synthesis {
+        a = -a;
+    }
 
-    unsafe { avx2_irv_vert_step_inner(a, sig, other, aug, repeat); }
+    unsafe {
+        avx2_irv_vert_step_inner(a, sig, other, aug, repeat);
+    }
 }
 
 #[cfg(target_arch = "x86_64")]
@@ -453,7 +465,9 @@ unsafe fn avx2_irv_vert_step_inner(
 /// SSE2-accelerated multiply by K.
 #[cfg(target_arch = "x86_64")]
 pub(crate) fn sse2_irv_vert_times_k(k: f32, aug: &mut LineBuf, repeat: u32) {
-    unsafe { sse2_irv_vert_times_k_inner(k, aug, repeat); }
+    unsafe {
+        sse2_irv_vert_times_k_inner(k, aug, repeat);
+    }
 }
 
 #[cfg(target_arch = "x86_64")]
@@ -478,7 +492,9 @@ unsafe fn sse2_irv_vert_times_k_inner(k: f32, aug: &mut LineBuf, repeat: u32) {
 /// AVX2-accelerated multiply by K.
 #[cfg(target_arch = "x86_64")]
 pub(crate) fn avx2_irv_vert_times_k(k: f32, aug: &mut LineBuf, repeat: u32) {
-    unsafe { avx2_irv_vert_times_k_inner(k, aug, repeat); }
+    unsafe {
+        avx2_irv_vert_times_k_inner(k, aug, repeat);
+    }
 }
 
 #[cfg(target_arch = "x86_64")]

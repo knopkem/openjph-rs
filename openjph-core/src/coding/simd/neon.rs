@@ -136,7 +136,15 @@ mod tests {
     #[test]
     fn neon_abs_i32_matches_scalar() {
         for count in [1, 4, 7, 16, 33] {
-            let data: Vec<i32> = (0..count).map(|i| if i % 2 == 0 { i as i32 + 1 } else { -(i as i32) - 1 }).collect();
+            let data: Vec<i32> = (0..count)
+                .map(|i| {
+                    if i % 2 == 0 {
+                        i as i32 + 1
+                    } else {
+                        -(i as i32) - 1
+                    }
+                })
+                .collect();
             let mut scalar_out = vec![0u32; count];
             let mut neon_out = vec![0u32; count];
 

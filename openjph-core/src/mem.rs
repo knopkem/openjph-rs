@@ -44,7 +44,10 @@ impl<T> AlignedVec<T> {
 
     /// Creates a new `AlignedVec` with the specified alignment.
     pub fn with_alignment(alignment: usize) -> Self {
-        assert!(alignment.is_power_of_two(), "alignment must be a power of two");
+        assert!(
+            alignment.is_power_of_two(),
+            "alignment must be a power of two"
+        );
         Self {
             ptr: NonNull::dangling(),
             len: 0,

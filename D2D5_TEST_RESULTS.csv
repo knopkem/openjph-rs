@@ -1,0 +1,29 @@
+Test Name,Status,MSE,PAE,Bit Depth,Image Size,Decomp Level,Description
+enc_rev53_decomp_0,PASS,0.0,0,8,64x64,0,No DWT - baseline pass
+enc_rev53_decomp_1,FAIL,10922.996,,8,64x64,1,Decomposition level 1
+enc_rev53_decomp_2,FAIL,10925.977,,8,64x64,2,Decomposition level 2
+enc_rev53_decomp_3,FAIL,10925.977,,8,64x64,3,Decomposition level 3
+enc_rev53_decomp_4,FAIL,10925.977,,8,64x64,4,Decomposition level 4
+enc_rev53_decomp_5,FAIL,10925.977,,8,64x64,5,Decomposition level 5
+enc_rev53_64x64,FAIL,10922.996,,8,64x64,5,64x64 RGB image
+enc_rev53_32x32,FAIL,10922.996,,8,32x32,5,32x32 RGB image
+enc_rev53_4x4,FAIL,10922.996,,8,4x4,5,4x4 RGB image
+enc_rev53_1024x4,FAIL,10922.996,,8,1024x4,5,Tall narrow image
+enc_rev53_4x1024,FAIL,10922.996,,8,4x1024,5,Wide tall image
+enc_rev53_256x256,FAIL,10922.996,,8,256x256,5,256x256 RGB image
+enc_rev53_tiles_33x33_d5,FAIL,10922.996,,8,33x33,5,33x33 tiled image
+enc_rev53_tiles_33x33_d6,FAIL,10925.977,,8,33x33,5,33x33 tiled with d6
+enc_rev53_tall_narrow,FAIL,11413.491,,8,127x93,5,Odd dimensions 127x93
+enc_rev53_127x93,FAIL,10925.977,,8,127x93,5,Odd dimensions variant
+enc_rev53_10bit_rgb,FAIL,97514.46,,10,256x256,5,10-bit RGB
+enc_rev53_12bit_gray,FAIL,97514.46,,12,256x256,5,12-bit grayscale
+enc_rev53_16bit_rgb,FAIL,10873.665,,16,256x256,5,16-bit RGB
+enc_rev53_16bit_gray,FAIL,2078828000,,16,256x256,5,16-bit grayscale - HIGH MSE
+dec_rev53_64x64_rgb,FAIL,10925.977,,8,64x64,5,Decode 64x64 RGB
+dec_rev53_32x32_rgb,FAIL,10925.977,,8,32x32,5,Decode 32x32 RGB
+dec_rev53_4x4_rgb,FAIL,10925.977,,8,4x4,5,Decode 4x4 RGB
+dec_rev53_1024x4_rgb,FAIL,10925.977,,8,1024x4,5,Decode tall narrow
+dec_rev53_4x1024_rgb,FAIL,2078828000,,8,4x1024,5,Decode wide tall - HIGH MSE
+dec_rev53_gray_tiles,FAIL,10925.977,,8,64x64,5,Decode gray tiles
+dec_rev53_16bit_rgb,FAIL,2106786600,,16,64x64,5,Decode 16-bit RGB - CRITICAL
+dec_rev53_16bit_gray,FAIL,2106786600,,16,64x64,5,Decode 16-bit gray - CRITICAL

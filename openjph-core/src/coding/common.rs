@@ -102,8 +102,7 @@ fn vlc_init_one_dec_table(tbl: &mut [u16; 1024], src: &[VlcSrcEntry]) {
         let cwd = i & 0x7F;
         let c_q = i >> 7;
         for entry in src {
-            if entry.c_q as u32 == c_q
-                && entry.cwd as u32 == (cwd & ((1u32 << entry.cwd_len) - 1))
+            if entry.c_q as u32 == c_q && entry.cwd as u32 == (cwd & ((1u32 << entry.cwd_len) - 1))
             {
                 tbl[i as usize] = ((entry.rho as u16) << 4)
                     | ((entry.u_off as u16) << 3)
@@ -301,10 +300,7 @@ fn vlc_init_one_enc_table(tbl: &mut [u16; 2048], src: &[VlcSrcEntry]) {
         } else {
             // u_off = 0: find first matching entry
             for entry in src {
-                if entry.c_q as u32 == c_q
-                    && entry.rho as u32 == rho
-                    && entry.u_off == 0
-                {
+                if entry.c_q as u32 == c_q && entry.rho as u32 == rho && entry.u_off == 0 {
                     best_entry = Some(entry);
                     break;
                 }
@@ -312,8 +308,7 @@ fn vlc_init_one_enc_table(tbl: &mut [u16; 2048], src: &[VlcSrcEntry]) {
         }
 
         if let Some(e) = best_entry {
-            tbl[i as usize] =
-                ((e.cwd as u16) << 8) + ((e.cwd_len as u16) << 4) + (e.e_k as u16);
+            tbl[i as usize] = ((e.cwd as u16) << 8) + ((e.cwd_len as u16) << 4) + (e.e_k as u16);
         }
     }
 }
@@ -326,11 +321,46 @@ fn vlc_init_one_enc_table(tbl: &mut [u16; 2048], src: &[VlcSrcEntry]) {
 fn uvlc_init_enc_tables(t: &mut EncoderTables) {
     let tbl = &mut t.uvlc_tbl;
 
-    tbl[0] = UvlcEncEntry { pre: 0, pre_len: 0, suf: 0, suf_len: 0, ext: 0, ext_len: 0 };
-    tbl[1] = UvlcEncEntry { pre: 1, pre_len: 1, suf: 0, suf_len: 0, ext: 0, ext_len: 0 };
-    tbl[2] = UvlcEncEntry { pre: 2, pre_len: 2, suf: 0, suf_len: 0, ext: 0, ext_len: 0 };
-    tbl[3] = UvlcEncEntry { pre: 4, pre_len: 3, suf: 0, suf_len: 1, ext: 0, ext_len: 0 };
-    tbl[4] = UvlcEncEntry { pre: 4, pre_len: 3, suf: 1, suf_len: 1, ext: 0, ext_len: 0 };
+    tbl[0] = UvlcEncEntry {
+        pre: 0,
+        pre_len: 0,
+        suf: 0,
+        suf_len: 0,
+        ext: 0,
+        ext_len: 0,
+    };
+    tbl[1] = UvlcEncEntry {
+        pre: 1,
+        pre_len: 1,
+        suf: 0,
+        suf_len: 0,
+        ext: 0,
+        ext_len: 0,
+    };
+    tbl[2] = UvlcEncEntry {
+        pre: 2,
+        pre_len: 2,
+        suf: 0,
+        suf_len: 0,
+        ext: 0,
+        ext_len: 0,
+    };
+    tbl[3] = UvlcEncEntry {
+        pre: 4,
+        pre_len: 3,
+        suf: 0,
+        suf_len: 1,
+        ext: 0,
+        ext_len: 0,
+    };
+    tbl[4] = UvlcEncEntry {
+        pre: 4,
+        pre_len: 3,
+        suf: 1,
+        suf_len: 1,
+        ext: 0,
+        ext_len: 0,
+    };
 
     for i in 5..33usize {
         tbl[i] = UvlcEncEntry {

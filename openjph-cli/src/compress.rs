@@ -100,7 +100,10 @@ fn parse_point_list(s: &str) -> Result<Vec<Point>, String> {
 
 /// HTJ2K image compression tool
 #[derive(Parser, Debug)]
-#[command(name = "ojph_compress", about = "Compress images to HTJ2K (JPEG 2000 Part 15) codestreams")]
+#[command(
+    name = "ojph_compress",
+    about = "Compress images to HTJ2K (JPEG 2000 Part 15) codestreams"
+)]
 struct Args {
     /// Input image file (PPM, PGM, YUV, DPX, RAWL)
     #[arg(short = 'i', long = "input")]
@@ -252,10 +255,7 @@ fn run() -> Result<()> {
     // SIZ parameters
     {
         let siz = codestream.access_siz_mut();
-        siz.set_image_extent(Point::new(
-            image_offset.x + width,
-            image_offset.y + height,
-        ));
+        siz.set_image_extent(Point::new(image_offset.x + width, image_offset.y + height));
         siz.set_image_offset(image_offset);
         siz.set_tile_offset(tile_offset);
 
@@ -286,8 +286,9 @@ fn run() -> Result<()> {
             cod.set_precinct_size(precincts.len() as i32, precincts);
         }
 
-        cod.set_progression_order(&args.prog_order)
-            .map_err(|e| anyhow::anyhow!("Invalid progression order '{}': {:?}", args.prog_order, e))?;
+        cod.set_progression_order(&args.prog_order).map_err(|e| {
+            anyhow::anyhow!("Invalid progression order '{}': {:?}", args.prog_order, e)
+        })?;
 
         if let Some(ct) = args.colour_trans {
             cod.set_color_transform(ct);
@@ -316,7 +317,8 @@ fn run() -> Result<()> {
     }
 
     if let Some(ref profile) = args.profile {
-        codestream.set_profile(profile)
+        codestream
+            .set_profile(profile)
             .map_err(|e| anyhow::anyhow!("Invalid profile '{}': {:?}", profile, e))?;
     }
 
@@ -331,7 +333,8 @@ fn run() -> Result<()> {
         comments.push(ce);
     }
 
-    codestream.write_headers(&mut outfile, &comments)
+    codestream
+        .write_headers(&mut outfile, &comments)
         .map_err(|e| anyhow::anyhow!("Failed to write codestream headers: {:?}", e))?;
 
     // --- Compression loop ---
@@ -364,7 +367,9 @@ fn run() -> Result<()> {
 
     eprintln!(
         "ojph_compress: read {}x{} image ({} components, {} bpp) -> {}",
-        width, height, num_comps,
+        width,
+        height,
+        num_comps,
         reader.get_bit_depth(0),
         args.output,
     );

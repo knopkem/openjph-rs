@@ -272,11 +272,11 @@ mod tests {
 
         let mut writer = BitBufferWrite::new();
         // Write known values of various widths
-        writer.write(0x7, 3);    // 111
-        writer.write(0x0, 1);    // 0
-        writer.write(0x15, 5);   // 10101
-        writer.write(0xAB, 8);   // 10101011
-        writer.write(0x3, 2);    // 11
+        writer.write(0x7, 3); // 111
+        writer.write(0x0, 1); // 0
+        writer.write(0x15, 5); // 10101
+        writer.write(0xAB, 8); // 10101011
+        writer.write(0x3, 2); // 11
         writer.finalize();
 
         let data = writer.get_data();
@@ -324,8 +324,8 @@ mod tests {
         // Test 3: 0xFF with mixed bit-width writes
         let mut writer = BitBufferWrite::new();
         writer.write(0xFF, 8);
-        writer.write(0x5, 3);  // 101
-        writer.write(0xA, 4);  // 1010
+        writer.write(0x5, 3); // 101
+        writer.write(0xA, 4); // 1010
         writer.finalize();
 
         let data = writer.get_data();

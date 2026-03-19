@@ -2,9 +2,9 @@
 //!
 //! Port of `ojph_transform.h/cpp` and `ojph_colour.h/cpp`.
 
-pub(crate) mod wavelet;
 pub(crate) mod colour;
 pub(crate) mod simd;
+pub(crate) mod wavelet;
 
 use std::sync::OnceLock;
 
@@ -124,40 +124,80 @@ impl ParamAtk {
 
     /// Initializes for the standard irreversible 9/7 wavelet.
     pub fn init_irv97(&mut self) {
-        // 9/7 lifting coefficients (4 steps)
-        const ALPHA: f32 = -1.586_134_3; // step 0
-        const BETA: f32 = -0.052_980_118; // step 1
-        const GAMMA: f32 = 0.882_911_08; // step 2
-        const DELTA: f32 = 0.443_506_85; // step 3
+        // Match OpenJPH's stored step order in param_atk::init_irv97().
+        const DELTA: f32 = 0.443_506_85; // step 0
+        const GAMMA: f32 = 0.882_911_08; // step 1
+        const BETA: f32 = -0.052_980_118; // step 2
+        const ALPHA: f32 = -1.586_134_3; // step 3
         const K: f32 = 1.230_174_1;
 
         self.natk = 4;
         self.katk = K;
         self.steps.clear();
-        self.steps.push(LiftingStep::Irreversible(IrvLiftingStep { a: ALPHA }));
-        self.steps.push(LiftingStep::Irreversible(IrvLiftingStep { a: BETA }));
-        self.steps.push(LiftingStep::Irreversible(IrvLiftingStep { a: GAMMA }));
-        self.steps.push(LiftingStep::Irreversible(IrvLiftingStep { a: DELTA }));
+        self.steps
+            .push(LiftingStep::Irreversible(IrvLiftingStep { a: DELTA }));
+        self.steps
+            .push(LiftingStep::Irreversible(IrvLiftingStep { a: GAMMA }));
+        self.steps
+            .push(LiftingStep::Irreversible(IrvLiftingStep { a: BETA }));
+        self.steps
+            .push(LiftingStep::Irreversible(IrvLiftingStep { a: ALPHA }));
     }
 
     /// Initializes for the standard reversible 5/3 wavelet.
     pub fn init_rev53(&mut self) {
-        // 5/3 lifting: 2 steps
-        // Step 0 (predict): a=-1, b=1, e=1  → d[n] -= (s[n-1]+s[n]) >> 1
-        // Step 1 (update):  a=1,  b=2, e=2  → s[n] += (d[n-1]+d[n]+2) >> 2
+        // Match OpenJPH's stored step order in param_atk::init_rev53().
         self.natk = 2;
         self.katk = 0.0;
         self.steps.clear();
+        self.steps
+            .push(LiftingStep::Reversible(RevLiftingStep { a: 1, b: 2, e: 2 }));
         self.steps.push(LiftingStep::Reversible(RevLiftingStep {
             a: -1,
             b: 1,
             e: 1,
         }));
-        self.steps.push(LiftingStep::Reversible(RevLiftingStep {
-            a: 1,
-            b: 2,
-            e: 2,
-        }));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LiftingStep, ParamAtk};
+
+    #[test]
+    fn rev53_step_order_matches_openjph() {
+        let mut atk = ParamAtk::default();
+        atk.init_rev53();
+        assert_eq!(atk.get_num_steps(), 2);
+
+        match atk.get_step(0) {
+            LiftingStep::Reversible(step) => assert_eq!((step.a, step.b, step.e), (1, 2, 2)),
+            _ => panic!("expected reversible step 0"),
+        }
+        match atk.get_step(1) {
+            LiftingStep::Reversible(step) => assert_eq!((step.a, step.b, step.e), (-1, 1, 1)),
+            _ => panic!("expected reversible step 1"),
+        }
+    }
+
+    #[test]
+    fn irv97_step_order_matches_openjph() {
+        let mut atk = ParamAtk::default();
+        atk.init_irv97();
+        assert_eq!(atk.get_num_steps(), 4);
+
+        let mut got = Vec::new();
+        for idx in 0..atk.get_num_steps() {
+            match atk.get_step(idx) {
+                LiftingStep::Irreversible(step) => got.push(step.a),
+                _ => panic!("expected irreversible step"),
+            }
+        }
+
+        let expected = [0.443_506_85, 0.882_911_1, -0.052_980_118, -1.586_134_3];
+        for (actual, expected) in got.into_iter().zip(expected) {
+            assert!((actual - expected).abs() < 1e-7);
+        }
     }
 }
 
