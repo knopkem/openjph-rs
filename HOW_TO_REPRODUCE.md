@@ -1,174 +1,106 @@
-# How to Reproduce the D2/D5 Reversible Lossless Decoding Tests
+# How to Reproduce the Current OpenJPH-RS Status
 
-## Quick Reproduction
+This file supersedes the older rev53 failure instructions.
 
-To reproduce all 28 reversible (5/3) tests from the verification:
+As of the 2026-03-19 audit:
+
+- the old reversible 5/3 (`rev53`) failures are fixed
+- the two external HTJ2K conformance fixtures previously cited as blockers now
+  decode correctly
+- the remaining red bucket is irreversible 9/7 (`irv97`)
+
+## Quick status split
+
+- `rev53`: green
+- external HTJ2K fixture spot-checks: green
+- full `openjph-core` suite: red because `integration_encode_decode` still has
+  50 `irv97` failures
+
+## Confirm the old rev53 repros are fixed
+
+Run the old repro commands that used to fail:
 
 ```bash
 cd /Users/macair/projects/dicom/openjph-rs
-cargo test --test integration_encode_decode "rev" -- --nocapture 2>&1
+
+cargo test -p openjph-core --test integration_encode_decode enc_rev53_decomp_2
+cargo test -p openjph-core --test integration_encode_decode enc_rev53_decomp_5
+cargo test -p openjph-core --test integration_encode_decode enc_rev53_256x256
+cargo test -p openjph-core --test integration_encode_decode enc_rev53_16bit_gray
 ```
 
-## Individual Test Examples
+Expected result now: all four commands exit successfully.
 
-### Test 1: D2 Reversible (Decomposition Level 2)
-```bash
-cargo test --test integration_encode_decode enc_rev53_decomp_2 -- --nocapture
-```
-
-**Expected Result**: ❌ FAIL with MSE=10,925.977
-
-### Test 2: D5 Reversible (Decomposition Level 5)
-```bash
-cargo test --test integration_encode_decode enc_rev53_decomp_5 -- --nocapture
-```
-
-**Expected Result**: ❌ FAIL with MSE=10,925.977
-
-### Test 3: Baseline (No DWT - should PASS)
-```bash
-cargo test --test integration_encode_decode enc_rev53_decomp_0 -- --nocapture
-```
-
-**Expected Result**: ✅ PASS with MSE=0.0
-
-### Test 4: Large D5 Image
-```bash
-cargo test --test integration_encode_decode enc_rev53_256x256 -- --nocapture
-```
-
-**Expected Result**: ❌ FAIL with MSE=10,922.996
-
-### Test 5: 16-bit Grayscale (Critical Case)
-```bash
-cargo test --test integration_encode_decode enc_rev53_16bit_gray -- --nocapture
-```
-
-**Expected Result**: ❌ FAIL with catastrophic MSE=2,078,828,000
-
-## Full Test Suite
-
-Run all reversible tests and capture results:
+To run the whole reversible bucket:
 
 ```bash
-cargo test --test integration_encode_decode "rev" 2>&1 | tee reversible_test_results.log
+cargo test -p openjph-core rev53
 ```
 
-## Analyzing Results
+Expected result now: success. During the audit this subset was green.
 
-Extract just the pass/fail summary:
+## Reproduce the remaining failures
+
+To run the currently failing irreversible bucket:
 
 ```bash
-cargo test --test integration_encode_decode "rev" 2>&1 | grep -E "(test |FAILED|passed|failed)"
+cd /Users/macair/projects/dicom/openjph-rs
+cargo test -p openjph-core irv97
 ```
 
-## Expected Output Pattern
+Expected result now:
 
-All tests except `enc_rev53_decomp_0` should show:
+- `integration_encode_decode` fails in 50 `irv97` cases
+- many 8-bit RGB cases report MSE around `5464.9844`
+- 16-bit cases report much larger MSE, around `1_039_004_000` to
+  `1_053_217_000`
 
-```
-assertion `left == right` failed: component 0: reversible roundtrip must be lossless (MSE=XXXX.XXX)
-```
-
-## Test Parameters Explained
-
-Each test in the format `enc_rev53_*` or `dec_rev53_*`:
-
-- **enc_** = Encode test (encode→decode roundtrip)
-- **dec_** = Decode test (decode only)
-- **rev53** = Reversible 5/3 DWT filter
-- **decomp_N** = Decomposition level N (0-6)
-- **64x64** = Image dimensions
-- **16bit** = Bit depth (8/10/12/16)
-- **gray/rgb** = Color space
-- **tiles** = Tiled image
-
-## Debugging Individual Components
-
-### Test the 5/3 Filter Alone
-
-To isolate the DWT53 issue, you'd want to:
-
-```rust
-#[test]
-fn test_dwt53_forward_inverse_roundtrip() {
-    let input = vec![1, 2, 3, 4, 5, 6, 7, 8];
-    let transformed = dwt53_forward(&input, ...);
-    let reconstructed = dwt53_inverse(&transformed, ...);
-    assert_eq!(input, reconstructed, "Must be lossless");
-}
-```
-
-This would isolate whether the bug is in the forward or inverse transform.
-
-## Cross-Platform Testing (Once Fixed)
-
-After fixing the Rust implementation, verify C++ OpenJPH can decode the codestreams:
+Representative individual repros:
 
 ```bash
-# Generate a reversible codestream with fixed Rust encoder
-./target/release/ojph_compress -i test_image.pgm -o test_d5.j2c --reversible --num_decomps 5
-
-# Decode with C++ OpenJPH
-./target/release/ojph_expand -i test_d5.j2c -o test_decoded.pgm
-
-# Compare original vs decoded (should be identical)
-cmp test_image.pgm test_decoded.pgm && echo "LOSSLESS" || echo "LOSSY"
+cargo test -p openjph-core --test integration_encode_decode dec_irv97_64x64_rgb -- --nocapture
+cargo test -p openjph-core --test integration_encode_decode enc_irv97_decomp_0 -- --nocapture
+cargo test -p openjph-core --test integration_encode_decode enc_irv97_16bit_gray -- --nocapture
 ```
 
-## CI/CD Integration
+Representative current failure text:
 
-Add to your GitHub Actions or CI pipeline:
-
-```yaml
-- name: Verify D2/D5 Reversible Lossless
-  run: |
-    cd openjph-rs
-    cargo test --test integration_encode_decode enc_rev53_decomp_2 -- --nocapture
-    cargo test --test integration_encode_decode enc_rev53_decomp_5 -- --nocapture
+```text
+component 0: MSE 5464.9844 exceeds 1% of range² (650.25)
+component 0: MSE 1053217000 exceeds 1% of range² (42948360)
 ```
 
-## Success Criteria
+## Full-suite check
 
-✅ **After Fix**: All 28 tests should pass with MSE=0.0 and PAE=0
-
-❌ **Before Fix**: 27/28 tests fail with non-zero MSE
-
-## Related Files for Investigation
-
-- `openjph-core/src/transform/dwt53.rs` - Primary suspect (5/3 filter)
-- `openjph-core/src/codec/encoder.rs` - Encoding pipeline
-- `openjph-core/src/codec/decoder.rs` - Decoding pipeline
-- `openjph-core/tests/integration_encode_decode.rs` - Test definitions
-- `openjph-core/tests/common/mse_pae.rs` - MSE/PAE computation
-
-## Performance Baseline
-
-Expected test execution time:
-- Single test: ~100-200ms
-- All 28 reversible tests: ~3-5 seconds (on modern hardware)
-- Full integration suite: ~10-30 seconds
-
-## Troubleshooting
-
-### Test Compilation Issues
 ```bash
-cargo clean
-cargo build --release
-cargo test --test integration_encode_decode --no-run
+cd /Users/macair/projects/dicom/openjph-rs
+cargo test -p openjph-core
 ```
 
-### View Full Test Output
-```bash
-RUST_BACKTRACE=1 cargo test --test integration_encode_decode enc_rev53_decomp_1 -- --nocapture
-```
+Expected result now:
 
-### Run with Verbose Output
-```bash
-cargo test --test integration_encode_decode enc_rev53_decomp_1 -- --nocapture --test-threads=1
-```
+- all `openjph-core` library/unit tests pass (`154 passed`)
+- Cargo then stops in `tests/integration_encode_decode.rs`
+- that binary reports `38 passed; 50 failed`
+- the failed tests are the current `irv97` blocker surface
 
----
+## External HTJ2K fixture spot-checks
 
-**Test Environment**: Tested on macOS with Rust 1.94.0
-**Last Updated**: March 19, 2024
+The old blocker note claimed that these external fixtures still decoded
+incorrectly:
+
+- `dcmtk-rs/.../ds0_ht_12_b11.j2k`
+- `dcmtk-rs/.../ds0_ht_11_b10.j2k`
+
+During the 2026-03-19 audit they were rechecked with a temporary helper that
+used `openjph_core::codestream::Codestream` directly and compared the decoded
+pixels against the PGX references. Both matched.
+
+There is no maintained in-tree command for that exact comparison yet, so treat
+this as a verified spot-check rather than a polished regression workflow.
+
+## Historical note
+
+Older versions of this file said the `enc_rev53_*` commands above should fail.
+That is no longer true. Those instructions are obsolete and were kept only long
+enough to localize the reversible parity gap that has now been fixed.

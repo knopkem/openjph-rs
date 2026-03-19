@@ -1,247 +1,120 @@
-# Rust-Generated D2/D5 Reversible Codestream Lossless Decoding Verification
+# OpenJPH-RS Lossless / Parity Verification Summary
 
-**Date**: 2024-03-19  
-**Test Target**: Verify lossless decoding of Rust OpenJPH reversible codestreams  
-**Status**: ❌ **CRITICAL FAILURE - NOT LOSSLESS**
+This file originally documented a March 2024 investigation where reversible
+5/3 (`rev53`) roundtrips were badly broken. That diagnosis was correct at the
+time, but it is no longer the current status.
 
----
+This updated summary reflects the 2026-03-19 audit.
 
-## Executive Summary
+## Executive summary
 
-Comprehensive testing of Rust-generated reversible (5/3 lossless) D2 and D5 codestreams reveals a **critical bug** in the Rust implementation's DWT (Discrete Wavelet Transform) processing. 
+The previous `rev53` lossless failure report is obsolete.
 
-**Key Findings:**
-- ❌ **27 out of 28 reversible tests FAIL** with significant MSE values
-- ✅ **Only 1 test passes**: Encoding with NO decomposition (decomp level 0)
-- 📊 **MSE Range**: 10,922 to 2,106,786,600 (depends on bit depth)
-- 🎯 **Expected MSE for lossless**: 0.0
-- **Current Status**: DOES NOT MEET LOSSLESS REQUIREMENT
+Current verified status:
 
----
+- reversible 5/3 (`rev53`) tests are now green
+- the old failing `enc_rev53_*` repro commands now pass
+- two external HTJ2K conformance fixtures previously cited as blockers now
+  decode correctly against their PGX references
+- the current failing surface is irreversible 9/7 (`irv97`), not reversible 5/3
 
-## Test Methodology
+## What was rechecked
 
-### Approach
-1. Generated synthetic test images in-memory using existing test infrastructure
-2. Encoded images using Rust OpenJPH with reversible (5/3) parameters
-3. Decoded reconstructed images  
-4. Computed MSE (Mean Squared Error) and PAE (Peak Absolute Error)
-5. Verified MSE = 0.0 for true lossless behavior
+### 1. Old rev53 repro commands
 
-### Test Coverage
-- **Image sizes**: 4×4, 32×32, 64×64, 128×128, 256×256, 1024×4, 4×1024, 127×93 (odd dimensions), tiled
-- **Bit depths**: 8-bit, 10-bit, 12-bit, 16-bit
-- **Color spaces**: Grayscale, RGB
-- **Decomposition levels**: 0, 1, 2, 3, 4, 5, 6
-- **Total tests**: 28 reversible-mode tests
+These commands were rerun:
 
-### Test Framework
-- **Tool**: Rust `cargo test` with `integration_encode_decode` test suite
-- **Binaries**: C++ OpenJPH `ojph_expand` available for cross-validation
-- **Test Infrastructure**: Existing comprehensive test suite in `openjph-core/tests/`
-
----
-
-## Detailed Test Results
-
-### Summary Statistics
-```
-Total Tests:        28
-Passed:             1  (3.6%)
-Failed:             27 (96.4%)
-
-Passing Test:
-  ✅ enc_rev53_decomp_0          MSE=0.0      (No DWT - baseline)
-
-Failed Tests (sample):
-  ❌ enc_rev53_decomp_1          MSE=10,922.996
-  ❌ enc_rev53_decomp_5          MSE=10,925.977
-  ❌ enc_rev53_64x64             MSE=10,922.996
-  ❌ enc_rev53_16bit_gray        MSE=2,078,828,000 ⚠️ CRITICAL
-  ❌ dec_rev53_16bit_gray        MSE=2,106,786,600 ⚠️ CRITICAL
+```text
+cargo test -p openjph-core --test integration_encode_decode enc_rev53_decomp_2
+cargo test -p openjph-core --test integration_encode_decode enc_rev53_decomp_5
+cargo test -p openjph-core --test integration_encode_decode enc_rev53_256x256
+cargo test -p openjph-core --test integration_encode_decode enc_rev53_16bit_gray
 ```
 
-### Critical Pattern
-**Only decomposition level 0 (no DWT) produces lossless results.**
+All four succeeded during the audit.
 
-This strongly indicates the bug is in the **DWT processing path**:
-- ✅ Forward DWT decomposition level 0 = works (no transform)
-- ❌ Forward DWT level 1+ = fails consistently
-- ❌ Inverse DWT reconstruction = fails for levels 1+
+### 2. Entire reversible bucket
 
-### MSE by Test Category
-
-#### By Decomposition Level (8-bit data)
-| Level | Test Count | Typical MSE | Status |
-|-------|-----------|------------|--------|
-| 0     | 1         | 0.0        | ✅ PASS |
-| 1     | 1         | 10,923     | ❌ FAIL |
-| 2     | 1         | 10,926     | ❌ FAIL |
-| 3     | 1         | 10,926     | ❌ FAIL |
-| 4     | 1         | 10,926     | ❌ FAIL |
-| 5     | 19        | 10,923-11,413 | ❌ FAIL |
-
-#### By Bit Depth
-| Bit Depth | MSE Range        | Status  |
-|-----------|-----------------|---------|
-| 8-bit     | 10,923-11,413   | ❌ FAIL |
-| 10-bit    | 97,514          | ❌ FAIL |
-| 12-bit    | 97,514          | ❌ FAIL |
-| 16-bit    | 10,873-2.1B     | ❌ FAIL |
-
-16-bit data shows catastrophic failure with MSE up to **2.1 billion**, suggesting potential integer overflow or precision loss.
-
----
-
-## Root Cause Analysis
-
-### Evidence Points
-
-1. **Pattern**: Only decomposition level 0 passes
-   - Eliminates pre/post-processing, header parsing
-   - Points directly to DWT transform code
-
-2. **Consistency**: Same MSE values across different image sizes
-   - Suggests systematic bug, not random memory corruption
-   - Consistent ~10,923 MSE for 8-bit suggests specific coefficient values are wrong
-
-3. **Bit-depth sensitivity**: 
-   - 8-bit: MSE ~10,923
-   - 16-bit: MSE up to 2.1 billion
-   - Suggests precision/overflow handling in filters
-
-4. **Decomposition independence**: 
-   - MSE similar for decomp levels 1-5
-   - Suggests bug in base level transform, not recursion
-
-### Suspect Code Areas
-
-1. **5/3 Filter Coefficients**
-   - Forward filter application: lift/predict/update steps
-   - Inverse filter reconstruction: reverse operations
-
-2. **DWT Level Iteration**
-   - Band selection (LL, LH, HL, HH)
-   - Dimension halving calculations
-   - Border/edge handling
-
-3. **Integer Arithmetic (Reversible Mode)**
-   - Coefficient quantization/rounding
-   - Integer division (must round-to-nearest-even for 5/3)
-   - Overflow handling for 16-bit coefficients
-
-4. **Memory Access**
-   - Data layout and stride calculations
-   - In-place vs. separate buffer processing
-   - Cache coherency on multi-level decomposition
-
-### Files to Investigate
-
-```
-openjph-core/src/
-├── transform/
-│   ├── dwt53.rs          ← 5/3 filter implementation (PRIMARY SUSPECT)
-│   └── dwt97.rs          ← 9/7 (irreversible) - likely working
-├── codec/
-│   ├── encoder.rs        ← Encoding pipeline
-│   └── decoder.rs        ← Decoding pipeline
-└── types.rs              ← Coefficient data types
+```text
+cargo test -p openjph-core rev53
 ```
 
----
+This subset also succeeded during the audit.
 
-## Impact Assessment
+### 3. External HTJ2K fixture spot-checks
 
-### Severity: **CRITICAL** 🔴
+The older migration blocker note called out these fixtures as still decoding
+incorrectly:
 
-- **Scope**: All reversible (lossless) JPEG 2000 compression with decomposition
-- **Affected Use Cases**: 
-  - Medical imaging (DICOM) requiring lossless compression
-  - Archival and document preservation
-  - Quality-critical applications
-- **User Impact**: Data corruption in production systems
+- `ds0_ht_12_b11.j2k`
+- `ds0_ht_11_b10.j2k`
 
-### Affected Formats
-- ❌ D2 Reversible (decomposition level 2)
-- ❌ D5 Reversible (decomposition level 5) 
-- ✅ No Decomposition (D0) - still works
-- ✅ Irreversible 9/7 (not affected by this bug)
+Both were rechecked with a temporary helper that used
+`openjph_core::codestream::Codestream` directly and compared the decoded output
+to the PGX references from `dcmtk-rs`. Both matched exactly.
 
----
+### 4. Full suite status
 
-## Cross-Platform Validation Status
-
-### Planned: Rust → C++ OpenJPH Decoding
-
-**Status**: DEFERRED (not tested yet)
-
-**Reason**: The Rust encoder itself produces incorrect codestreams with decomposition > 0. Cross-platform testing would confirm the same MSE values observed in roundtrip tests.
-
-**Plan**: Once Rust implementation is fixed:
-1. Generate D2/D5 reversible codestreams with fixed Rust encoder
-2. Decode with C++ OpenJPH `ojph_expand`
-3. Verify MSE = 0.0 for true interoperability
-
----
-
-## Recommendations
-
-### Immediate Actions (Critical Priority)
-
-1. **Debug DWT53 Implementation**
-   - Add unit tests for 5/3 forward and inverse transforms
-   - Test individual lift/predict/update operations
-   - Verify against reference implementations (OpenJPH C++)
-
-2. **Check Integer Arithmetic**
-   - Verify rounding modes (must be round-to-nearest-even for 5/3)
-   - Check for overflow in 16-bit processing
-   - Audit coefficient scaling factors
-
-3. **Validate Algorithm**
-   - Compare Rust code line-by-line with C++ OpenJPH
-   - Use known-good test vectors
-   - Check band assembly and reconstruction order
-
-4. **Add Regression Tests**
-   - Create unit tests that MUST have MSE = 0.0
-   - Add to CI/CD pipeline
-   - Include all bit depths and decomposition levels
-
-### Testing Strategy
-
-```rust
-// Example regression test structure
-#[test]
-fn test_dwt53_lossless_decomp_1() {
-    // Test 5/3 single-level decomposition
-    let original = vec![/* test data */];
-    let decomposed = dwt53_forward(&original, 64, 64, 1);
-    let reconstructed = dwt53_inverse(&decomposed, 64, 64, 1);
-    assert_eq!(original, reconstructed, "MSE must be 0.0 for lossless");
-}
+```text
+cargo test -p openjph-core
 ```
 
----
+Current observed outcome:
 
-## Files Generated
+- all library/unit tests pass: `154 passed`
+- `tests/integration_encode_decode.rs` then fails with `38 passed; 50 failed`
+- the failures are all in the irreversible `irv97` group
 
-1. **`D2D5_REVERSIBLE_TEST_REPORT.txt`** - Detailed test results
-2. **`D2D5_TEST_RESULTS.csv`** - Structured test data (for analysis/graphing)
-3. **`LOSSLESS_VERIFICATION_SUMMARY.md`** - This comprehensive summary
+## Current failure pattern
 
----
+The repository no longer shows the old reversible D2/D5 corruption pattern.
 
-## Conclusion
+The active failure pattern is instead:
 
-**The Rust OpenJPH implementation does NOT currently support lossless reversible D2/D5 compression.** The DWT processing has a critical bug that corrupts data during decomposition, making it unsuitable for production use in lossless scenarios.
+- many 8-bit `irv97` RGB cases fail near `MSE 5464.9844`
+- 16-bit `irv97` cases fail near `MSE 1_039_004_000` to `1_053_217_000`
+- the failures cover decode, encode, tiled, odd-size, and high-compression cases
 
-**Next Step**: Fix the DWT53 implementation and re-run this verification suite.
+Representative failing tests:
 
----
+- `dec_irv97_64x64_rgb`
+- `dec_irv97_gray_tiles`
+- `enc_irv97_decomp_0`
+- `enc_irv97_16bit_gray`
+- `enc_irv97_tiles_33x33_d6`
 
-**Test Environment:**
-- Date: March 19, 2024
-- Rust Toolchain: 1.94.0
-- Platform: macOS
-- C++ OpenJPH: Available at `/Users/macair/projects/dicom/openjph-rs/target/release/ojph_expand`
+## Interpretation
+
+### Resolved bucket
+
+The earlier reversible parity gap was real and significant, but it has now been
+closed far enough that:
+
+- the old rev53 repros pass
+- the whole `rev53` subset passes
+- the two external HTJ2K spot-check fixtures decode correctly
+
+### Remaining bucket
+
+The codec is still not ready to replace the active `dcmtk-rs` HTJ2K backend,
+because the irreversible 9/7 path still fails broadly.
+
+So the migration blocker has moved:
+
+- **old blocker**: reversible 5/3 / packet / DWT parity
+- **current blocker**: irreversible 9/7 parity (`irv97`)
+
+## Recommended next pass
+
+1. Treat `irv97` as a dedicated parity bucket against local C++ OpenJPH.
+2. Keep `rev53` green while working on the irreversible path.
+3. After `irv97` is green, rerun:
+   - `cargo test -p openjph-core`
+   - the external HTJ2K fixture spot-checks
+   - the downstream `dcmtk-rs` HTJ2K integration tests
+
+## Historical note
+
+The older raw artifacts in this directory (`D2D5_REVERSIBLE_TEST_REPORT.txt`
+and `D2D5_TEST_RESULTS.csv`) are still useful as an archive of the original
+bug, but they no longer describe the repository's current state.
