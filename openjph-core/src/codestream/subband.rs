@@ -62,6 +62,8 @@ pub struct Subband {
     pub codeblocks: Vec<Codeblock>,
     /// Coefficient data (row-major, width × height).
     pub coeffs: Vec<i32>,
+    /// Float coefficient data for irreversible decode (dequantized, normalized).
+    pub coeffs_f32: Vec<f32>,
 }
 
 impl Default for Subband {
@@ -78,6 +80,7 @@ impl Default for Subband {
             num_blocks_y: 0,
             codeblocks: Vec::new(),
             coeffs: Vec::new(),
+            coeffs_f32: Vec::new(),
         }
     }
 }
@@ -223,7 +226,7 @@ impl Subband {
             let missing_msbs = if self.reversible {
                 self.k_max.saturating_sub(1)
             } else {
-                0
+                self.k_max.saturating_sub(1)
             };
 
             let result = encode_codeblock32(&u32_buf, missing_msbs, 1, cb_w, cb_h, stride)?;
@@ -249,6 +252,9 @@ impl Subband {
         }
 
         self.coeffs = vec![0i32; (sb_w * sb_h) as usize];
+        if !self.reversible {
+            self.coeffs_f32 = vec![0f32; (sb_w * sb_h) as usize];
+        }
 
         for cb in &mut self.codeblocks {
             let cb_w = cb.width();
@@ -290,23 +296,20 @@ impl Subband {
                 for x in 0..cb_w {
                     let val = decoded[(y * stride + x) as usize];
                     let sign = (val >> 31) & 1;
-                    let coeff = if self.reversible {
+                    let idx = ((cb_y0 + y) * sb_w + (cb_x0 + x)) as usize;
+                    if self.reversible {
                         let mag = (val & 0x7FFF_FFFF) >> shift;
-                        if sign != 0 {
+                        self.coeffs[idx] = if sign != 0 {
                             -(mag as i32)
                         } else {
                             mag as i32
-                        }
+                        };
                     } else {
+                        // Irreversible: dequantize to float, keep full precision
                         let mag = (val & 0x7FFF_FFFF) as f32 * self.delta;
-                        let mag = mag.round() as i32;
-                        if sign != 0 {
-                            -mag
-                        } else {
-                            mag
-                        }
-                    };
-                    self.coeffs[((cb_y0 + y) * sb_w + (cb_x0 + x)) as usize] = coeff;
+                        let float_val = if sign != 0 { -mag } else { mag };
+                        self.coeffs_f32[idx] = float_val;
+                    }
                 }
             }
         }

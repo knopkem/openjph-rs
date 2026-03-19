@@ -155,15 +155,33 @@ impl TileComp {
             // No DWT: store lines directly in LL subband
             let w = self.width() as usize;
             let h = self.height() as usize;
-            let mut coeffs = vec![0i32; w * h];
-            for (y, row) in self.lines.iter().enumerate() {
-                if y >= h {
-                    break;
+            if self.reversible {
+                let mut coeffs = vec![0i32; w * h];
+                for (y, row) in self.lines.iter().enumerate() {
+                    if y >= h {
+                        break;
+                    }
+                    let n = w.min(row.len());
+                    coeffs[y * w..y * w + n].copy_from_slice(&row[..n]);
                 }
-                let n = w.min(row.len());
-                coeffs[y * w..y * w + n].copy_from_slice(&row[..n]);
+                self.resolutions[0].subbands[0].coeffs = coeffs;
+            } else {
+                // Irreversible with no DWT: normalize and quantize
+                let norm = 1.0f32 / (1u32 << self.bit_depth) as f32;
+                let delta_inv = 1.0f64 / self.resolutions[0].subbands[0].delta as f64;
+                let mut coeffs = vec![0i32; w * h];
+                for (y, row) in self.lines.iter().enumerate() {
+                    if y >= h {
+                        break;
+                    }
+                    for x in 0..w.min(row.len()) {
+                        let f = row[x] as f32 * norm;
+                        let q = (f as f64 * delta_inv) as i32;
+                        coeffs[y * w + x] = q;
+                    }
+                }
+                self.resolutions[0].subbands[0].coeffs = coeffs;
             }
-            self.resolutions[0].subbands[0].coeffs = coeffs;
             return Ok(());
         }
 
@@ -172,35 +190,53 @@ impl TileComp {
             return Ok(());
         }
 
-        // Multi-level DWT: apply iteratively
-        let mut current: Vec<Vec<i32>> = self.lines.clone();
-        for d in 0..num_decomps {
-            let res_idx = (num_decomps - d) as usize; // highest resolution first
-            let res_org = self.resolutions[res_idx].res_rect.org;
-            let (ll, hl, lh, hh) = dwt53_forward_2d(&current, res_org.x, res_org.y);
+        // Irreversible: float-based 9/7 DWT with quantization
+        // Normalize pixel values to [-0.5, 0.5) range (matching C++ irv_convert_to_float)
+        let norm = 1.0f32 / (1u32 << self.bit_depth) as f32;
+        let mut current_f32: Vec<Vec<f32>> = self
+            .lines
+            .iter()
+            .map(|row| row.iter().map(|&v| v as f32 * norm).collect())
+            .collect();
 
-            // Store detail subbands at this resolution level
+        for d in 0..num_decomps {
+            let res_idx = (num_decomps - d) as usize;
+            let res_org = self.resolutions[res_idx].res_rect.org;
+            let (ll, hl, lh, hh) = irv97_forward_2d(&current_f32, res_org.x, res_org.y);
+
+            // Quantize float coefficients and store in subbands
             let res = &mut self.resolutions[res_idx];
-            let sb_w = res.subbands[0].width() as usize;
-            let sb_h = res.subbands[0].height() as usize;
-            res.subbands[0].coeffs = flatten_2d(&hl, sb_w, sb_h);
-            res.subbands[1].coeffs = flatten_2d(
+            let delta_inv0 = 1.0f64 / res.subbands[0].delta as f64;
+            let delta_inv1 = 1.0f64 / res.subbands[1].delta as f64;
+            let delta_inv2 = 1.0f64 / res.subbands[2].delta as f64;
+            res.subbands[0].coeffs = quantize_f32_subband(
+                &hl,
+                res.subbands[0].width() as usize,
+                res.subbands[0].height() as usize,
+                delta_inv0,
+            );
+            res.subbands[1].coeffs = quantize_f32_subband(
                 &lh,
                 res.subbands[1].width() as usize,
                 res.subbands[1].height() as usize,
+                delta_inv1,
             );
-            res.subbands[2].coeffs = flatten_2d(
+            res.subbands[2].coeffs = quantize_f32_subband(
                 &hh,
                 res.subbands[2].width() as usize,
                 res.subbands[2].height() as usize,
+                delta_inv2,
             );
-            current = ll;
+
+            current_f32 = ll;
         }
 
-        // Store final LL in resolution 0
+        // Store final LL (quantized)
         let ll_w = self.resolutions[0].subbands[0].width() as usize;
         let ll_h = self.resolutions[0].subbands[0].height() as usize;
-        self.resolutions[0].subbands[0].coeffs = flatten_2d(&current, ll_w, ll_h);
+        let delta_inv_ll = 1.0f64 / self.resolutions[0].subbands[0].delta as f64;
+        self.resolutions[0].subbands[0].coeffs =
+            quantize_f32_subband(&current_f32, ll_w, ll_h, delta_inv_ll);
 
         Ok(())
     }
@@ -214,17 +250,35 @@ impl TileComp {
         if num_decomps == 0 {
             // No DWT: extract directly from LL subband
             let sb_w = self.resolutions[0].subbands[0].width() as usize;
-            let coeffs = &self.resolutions[0].subbands[0].coeffs;
-            let mut lines = Vec::with_capacity(h);
-            for y in 0..h {
-                let mut row = vec![0i32; w];
-                let n = w.min(sb_w);
-                if y * sb_w + n <= coeffs.len() {
-                    row[..n].copy_from_slice(&coeffs[y * sb_w..y * sb_w + n]);
+            if self.reversible {
+                let coeffs = &self.resolutions[0].subbands[0].coeffs;
+                let mut lines = Vec::with_capacity(h);
+                for y in 0..h {
+                    let mut row = vec![0i32; w];
+                    let n = w.min(sb_w);
+                    if y * sb_w + n <= coeffs.len() {
+                        row[..n].copy_from_slice(&coeffs[y * sb_w..y * sb_w + n]);
+                    }
+                    lines.push(row);
                 }
-                lines.push(row);
+                self.decoded_lines = lines;
+            } else {
+                // Irreversible: dequantized floats in coeffs_f32, denormalize
+                let coeffs_f32 = &self.resolutions[0].subbands[0].coeffs_f32;
+                let denorm = (1u32 << self.bit_depth) as f32;
+                let mut lines = Vec::with_capacity(h);
+                for y in 0..h {
+                    let mut row = vec![0i32; w];
+                    for x in 0..w.min(sb_w) {
+                        let idx = y * sb_w + x;
+                        if idx < coeffs_f32.len() {
+                            row[x] = (coeffs_f32[idx] * denorm).round() as i32;
+                        }
+                    }
+                    lines.push(row);
+                }
+                self.decoded_lines = lines;
             }
-            self.decoded_lines = lines;
             self.undo_level_shift();
             return Ok(());
         }
@@ -236,28 +290,33 @@ impl TileComp {
             return Ok(());
         }
 
-        // Start from LL at resolution 0
+        // Irreversible: float-based 9/7 inverse DWT
+        // decode_codeblocks stored dequantized float values in coeffs_f32.
         let ll_w = self.resolutions[0].subbands[0].width() as usize;
         let ll_h = self.resolutions[0].subbands[0].height() as usize;
-        let mut current = unflatten_2d(&self.resolutions[0].subbands[0].coeffs, ll_w, ll_h);
+        let mut current_f32 = f32_slice_to_2d(
+            &self.resolutions[0].subbands[0].coeffs_f32,
+            ll_w,
+            ll_h,
+        );
 
-        // Iterate from the lowest detail resolution to the highest
         for d in (0..num_decomps).rev() {
             let res_idx = (num_decomps - d) as usize;
             let res = &self.resolutions[res_idx];
             let res_org = res.res_rect.org;
-            let hl = unflatten_2d(
-                &res.subbands[0].coeffs,
+
+            let hl = f32_slice_to_2d(
+                &res.subbands[0].coeffs_f32,
                 res.subbands[0].width() as usize,
                 res.subbands[0].height() as usize,
             );
-            let lh = unflatten_2d(
-                &res.subbands[1].coeffs,
+            let lh = f32_slice_to_2d(
+                &res.subbands[1].coeffs_f32,
                 res.subbands[1].width() as usize,
                 res.subbands[1].height() as usize,
             );
-            let hh = unflatten_2d(
-                &res.subbands[2].coeffs,
+            let hh = f32_slice_to_2d(
+                &res.subbands[2].coeffs_f32,
                 res.subbands[2].width() as usize,
                 res.subbands[2].height() as usize,
             );
@@ -272,10 +331,16 @@ impl TileComp {
             } else {
                 self.resolutions[res_idx].res_rect.siz.h as usize
             };
-            current = dwt53_inverse_2d(&current, &hl, &lh, &hh, out_w, out_h, res_org.x, res_org.y);
+            current_f32 =
+                irv97_inverse_2d(&current_f32, &hl, &lh, &hh, out_w, out_h, res_org.x, res_org.y);
         }
 
-        self.decoded_lines = current;
+        // Denormalize: multiply by 2^bit_depth (inverse of the forward normalization)
+        let denorm = (1u32 << self.bit_depth) as f32;
+        self.decoded_lines = current_f32
+            .iter()
+            .map(|row| row.iter().map(|&v| (v * denorm).round() as i32).collect())
+            .collect();
         self.undo_level_shift();
         Ok(())
     }
@@ -318,11 +383,29 @@ fn make_i32_linebuf(data: &mut [i32]) -> crate::mem::LineBuf {
     }
 }
 
+fn make_f32_linebuf(data: &mut [f32]) -> crate::mem::LineBuf {
+    crate::mem::LineBuf {
+        size: data.len() - 1,
+        pre_size: 1,
+        flags: crate::mem::LFT_32BIT,
+        data: crate::mem::LineBufData::F32(data[1..].as_mut_ptr()),
+    }
+}
+
 fn rev53_atk() -> &'static crate::transform::ParamAtk {
     static ATK: std::sync::OnceLock<crate::transform::ParamAtk> = std::sync::OnceLock::new();
     ATK.get_or_init(|| {
         let mut atk = crate::transform::ParamAtk::default();
         atk.init_rev53();
+        atk
+    })
+}
+
+fn irv97_atk() -> &'static crate::transform::ParamAtk {
+    static ATK: std::sync::OnceLock<crate::transform::ParamAtk> = std::sync::OnceLock::new();
+    ATK.get_or_init(|| {
+        let mut atk = crate::transform::ParamAtk::default();
+        atk.init_irv97();
         atk
     })
 }
@@ -524,6 +607,257 @@ fn dwt53_inverse_2d(
         output.push(trimmed);
     }
     output
+}
+
+// =========================================================================
+// 9/7 irreversible DWT (float-based)
+// =========================================================================
+
+/// Forward 1D 9/7 DWT using the irv97 wavelet kernel.
+fn irv97_forward_1d(input: &[f32], origin: u32) -> (Vec<f32>, Vec<f32>) {
+    let width = input.len() as u32;
+    if width == 0 {
+        return (vec![], vec![]);
+    }
+
+    let even = (origin & 1) == 0;
+    let low_len = ((width + if even { 1 } else { 0 }) / 2) as usize;
+    let high_len = ((width + if even { 0 } else { 1 }) / 2) as usize;
+
+    let mut src_data = vec![0f32; width as usize + 2];
+    src_data[1..1 + input.len()].copy_from_slice(input);
+    let src = make_f32_linebuf(&mut src_data);
+
+    let mut low_data = vec![0f32; low_len + 2];
+    let mut high_data = vec![0f32; high_len + 2];
+    let mut low = make_f32_linebuf(&mut low_data);
+    let mut high = make_f32_linebuf(&mut high_data);
+
+    crate::transform::wavelet::gen_irv_horz_ana(
+        irv97_atk(),
+        &mut low,
+        &mut high,
+        &src,
+        width,
+        even,
+    );
+
+    (
+        low_data[1..1 + low_len].to_vec(),
+        high_data[1..1 + high_len].to_vec(),
+    )
+}
+
+/// Inverse 1D 9/7 DWT using the irv97 wavelet kernel.
+fn irv97_inverse_1d(low: &[f32], high: &[f32], origin: u32) -> Vec<f32> {
+    let width = (low.len() + high.len()) as u32;
+    if width == 0 {
+        return vec![];
+    }
+    let even = (origin & 1) == 0;
+
+    let mut low_data = vec![0f32; low.len() + 2];
+    let mut high_data = vec![0f32; high.len() + 2];
+    low_data[1..1 + low.len()].copy_from_slice(low);
+    high_data[1..1 + high.len()].copy_from_slice(high);
+
+    let mut low_buf = make_f32_linebuf(&mut low_data);
+    let mut high_buf = make_f32_linebuf(&mut high_data);
+    let mut dst_data = vec![0f32; width as usize + 2];
+    let mut dst = make_f32_linebuf(&mut dst_data);
+
+    crate::transform::wavelet::gen_irv_horz_syn(
+        irv97_atk(),
+        &mut dst,
+        &mut low_buf,
+        &mut high_buf,
+        width,
+        even,
+    );
+
+    dst_data[1..1 + width as usize].to_vec()
+}
+
+/// Forward 2D 9/7 DWT (one decomposition level, float).
+/// Returns (ll, hl, lh, hh) as 2D float arrays.
+fn irv97_forward_2d(
+    data: &[Vec<f32>],
+    org_x: u32,
+    org_y: u32,
+) -> (Vec<Vec<f32>>, Vec<Vec<f32>>, Vec<Vec<f32>>, Vec<Vec<f32>>) {
+    let height = data.len();
+    let width = if height > 0 { data[0].len() } else { 0 };
+
+    if height == 0 || width == 0 {
+        return (vec![], vec![], vec![], vec![]);
+    }
+
+    let odd_x = (org_x & 1) != 0;
+    let odd_y = (org_y & 1) != 0;
+    let low_w = if odd_x { width / 2 } else { (width + 1) / 2 };
+    let high_w = if odd_x { (width + 1) / 2 } else { width / 2 };
+    let low_h = if odd_y { height / 2 } else { (height + 1) / 2 };
+    let high_h = if odd_y { (height + 1) / 2 } else { height / 2 };
+
+    // Step 1: Horizontal DWT on each row
+    let mut h_low = Vec::with_capacity(height);
+    let mut h_high = Vec::with_capacity(height);
+    for row in data {
+        let (l, h) = irv97_forward_1d(row, org_x);
+        h_low.push(l);
+        h_high.push(h);
+    }
+
+    // Step 2: Vertical DWT on columns of h_low → LL, LH
+    let mut ll = vec![vec![0f32; low_w]; low_h];
+    let mut lh = vec![vec![0f32; low_w]; high_h];
+    for x in 0..low_w {
+        let col: Vec<f32> = h_low
+            .iter()
+            .map(|row| if x < row.len() { row[x] } else { 0.0 })
+            .collect();
+        let (s, d) = irv97_forward_1d(&col, org_y);
+        for y in 0..low_h.min(s.len()) {
+            ll[y][x] = s[y];
+        }
+        for y in 0..high_h.min(d.len()) {
+            lh[y][x] = d[y];
+        }
+    }
+
+    // Step 3: Vertical DWT on columns of h_high → HL, HH
+    let mut hl = vec![vec![0f32; high_w]; low_h];
+    let mut hh = vec![vec![0f32; high_w]; high_h];
+    for x in 0..high_w {
+        let col: Vec<f32> = h_high
+            .iter()
+            .map(|row| if x < row.len() { row[x] } else { 0.0 })
+            .collect();
+        let (s, d) = irv97_forward_1d(&col, org_y);
+        for y in 0..low_h.min(s.len()) {
+            hl[y][x] = s[y];
+        }
+        for y in 0..high_h.min(d.len()) {
+            hh[y][x] = d[y];
+        }
+    }
+
+    (ll, hl, lh, hh)
+}
+
+/// Inverse 2D 9/7 DWT — reconstructs float image from subbands.
+fn irv97_inverse_2d(
+    ll: &[Vec<f32>],
+    hl: &[Vec<f32>],
+    lh: &[Vec<f32>],
+    hh: &[Vec<f32>],
+    width: usize,
+    height: usize,
+    org_x: u32,
+    org_y: u32,
+) -> Vec<Vec<f32>> {
+    if width == 0 || height == 0 {
+        return vec![];
+    }
+
+    let odd_x = (org_x & 1) != 0;
+    let low_w = if odd_x { width / 2 } else { (width + 1) / 2 };
+    let high_w = if odd_x { (width + 1) / 2 } else { width / 2 };
+
+    // Step 1: Inverse vertical DWT on (LL, LH) → h_low columns
+    let mut h_low = vec![vec![0f32; low_w]; height];
+    for x in 0..low_w {
+        let low_col: Vec<f32> = ll
+            .iter()
+            .map(|row| if x < row.len() { row[x] } else { 0.0 })
+            .collect();
+        let high_col: Vec<f32> = lh
+            .iter()
+            .map(|row| if x < row.len() { row[x] } else { 0.0 })
+            .collect();
+        let col = irv97_inverse_1d(&low_col, &high_col, org_y);
+        for y in 0..height.min(col.len()) {
+            h_low[y][x] = col[y];
+        }
+    }
+
+    // Step 2: Inverse vertical DWT on (HL, HH) → h_high columns
+    let mut h_high = vec![vec![0f32; high_w]; height];
+    for x in 0..high_w {
+        let low_col: Vec<f32> = hl
+            .iter()
+            .map(|row| if x < row.len() { row[x] } else { 0.0 })
+            .collect();
+        let high_col: Vec<f32> = hh
+            .iter()
+            .map(|row| if x < row.len() { row[x] } else { 0.0 })
+            .collect();
+        let col = irv97_inverse_1d(&low_col, &high_col, org_y);
+        for y in 0..height.min(col.len()) {
+            h_high[y][x] = col[y];
+        }
+    }
+
+    // Step 3: Inverse horizontal DWT → output rows
+    let mut output = Vec::with_capacity(height);
+    for y in 0..height {
+        let row = irv97_inverse_1d(&h_low[y], &h_high[y], org_x);
+        let mut trimmed = vec![0f32; width];
+        let n = width.min(row.len());
+        trimmed[..n].copy_from_slice(&row[..n]);
+        output.push(trimmed);
+    }
+    output
+}
+
+/// Flatten 2D f32 array to 1D.
+fn flatten_2d_f32(data: &[Vec<f32>], target_w: usize, target_h: usize) -> Vec<f32> {
+    let mut out = vec![0f32; target_w * target_h];
+    for (y, row) in data.iter().enumerate() {
+        if y >= target_h {
+            break;
+        }
+        let n = target_w.min(row.len());
+        out[y * target_w..y * target_w + n].copy_from_slice(&row[..n]);
+    }
+    out
+}
+
+/// Quantize 2D f32 data to 1D i32 using trunc(v * delta_inv).
+fn quantize_f32_subband(
+    data: &[Vec<f32>],
+    target_w: usize,
+    target_h: usize,
+    delta_inv: f64,
+) -> Vec<i32> {
+    let mut out = vec![0i32; target_w * target_h];
+    for (y, row) in data.iter().enumerate() {
+        if y >= target_h {
+            break;
+        }
+        for x in 0..target_w.min(row.len()) {
+            let v = row[x] as f64 * delta_inv;
+            // Truncate towards zero (same as C++ ojph_trunc)
+            out[y * target_w + x] = v as i32;
+        }
+    }
+    out
+}
+
+/// Reshape a flat f32 slice into 2D Vec<Vec<f32>>.
+fn f32_slice_to_2d(data: &[f32], w: usize, h: usize) -> Vec<Vec<f32>> {
+    let mut out = Vec::with_capacity(h);
+    for y in 0..h {
+        let mut row = vec![0f32; w];
+        for x in 0..w {
+            let idx = y * w + x;
+            if idx < data.len() {
+                row[x] = data[idx];
+            }
+        }
+        out.push(row);
+    }
+    out
 }
 
 fn wrap_i32_line(data: &[i32]) -> crate::mem::LineBuf {
@@ -942,5 +1276,65 @@ mod tests {
                 "inverse mismatch for input={input:?} origin={origin}"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod irv97_tests {
+    use super::*;
+    
+    #[test]
+    fn irv97_forward_inverse_roundtrip() {
+        // Simple 8x8 gradient
+        let mut data: Vec<Vec<f32>> = Vec::new();
+        for y in 0..8 {
+            let mut row = Vec::new();
+            for x in 0..8 {
+                row.push((x as f32 * 10.0 + y as f32 * 3.0) - 40.0);
+            }
+            data.push(row);
+        }
+        
+        let (ll, hl, lh, hh) = irv97_forward_2d(&data, 0, 0);
+        let recon = irv97_inverse_2d(&ll, &hl, &lh, &hh, 8, 8, 0, 0);
+        
+        let mut max_err: f32 = 0.0;
+        for y in 0..8 {
+            for x in 0..8 {
+                let err = (data[y][x] - recon[y][x]).abs();
+                if err > max_err { max_err = err; }
+            }
+        }
+        eprintln!("irv97 roundtrip max error: {}", max_err);
+        assert!(max_err < 0.01, "irv97 roundtrip max error {} too high", max_err);
+    }
+}
+
+#[cfg(test)]
+mod irv97_normalization_tests {
+    use super::*;
+    
+    #[test]
+    fn irv97_k_normalization_check() {
+        // Constant signal of 128.0
+        let input: Vec<f32> = vec![128.0; 16];
+        let (low, _high) = irv97_forward_1d(&input, 0);
+        
+        let k: f32 = 1.230_174_1;
+        let expected_ll = 128.0 / k;  // Should be ≈ 104.05
+        
+        eprintln!("Input: constant 128.0, 16 samples");
+        eprintln!("Low output ({} samples): {:?}", low.len(), low);
+        eprintln!("Expected LL ≈ {:.4} (128/K where K={})", expected_ll, k);
+        eprintln!("Actual middle value: {:.4}", low[low.len()/2]);
+        
+        // Now test 2D
+        let data: Vec<Vec<f32>> = vec![vec![128.0; 8]; 8];
+        let (ll, _hl, _lh, _hh) = irv97_forward_2d(&data, 0, 0);
+        let k_inv_sq = 1.0 / (k * k);
+        let expected_ll_2d = 128.0 * k_inv_sq;
+        
+        eprintln!("2D LL center value: {:.4}, expected: {:.4} (128 * 1/K²)", 
+            ll[ll.len()/2][ll[0].len()/2], expected_ll_2d);
     }
 }
