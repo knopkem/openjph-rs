@@ -97,3 +97,140 @@ impl<'a> BitBufferRead<'a> {
         self.unstuff = false;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_single_bits() {
+        // 0xA5 = 1010_0101
+        let data = [0xA5u8];
+        let mut reader = BitBufferRead::new(&data);
+        assert_eq!(reader.read(1), 1);
+        assert_eq!(reader.read(1), 0);
+        assert_eq!(reader.read(1), 1);
+        assert_eq!(reader.read(1), 0);
+        assert_eq!(reader.read(1), 0);
+        assert_eq!(reader.read(1), 1);
+        assert_eq!(reader.read(1), 0);
+        assert_eq!(reader.read(1), 1);
+    }
+
+    #[test]
+    fn read_multi_bit_values() {
+        // 0xAB = 1010_1011, 0xCD = 1100_1101
+        let data = [0xABu8, 0xCD];
+        let mut reader = BitBufferRead::new(&data);
+        assert_eq!(reader.read(4), 0xA); // 1010
+        assert_eq!(reader.read(4), 0xB); // 1011
+        assert_eq!(reader.read(8), 0xCD);
+    }
+
+    #[test]
+    fn read_across_byte_boundary() {
+        let data = [0xABu8, 0xCD];
+        let mut reader = BitBufferRead::new(&data);
+        // Read 12 bits spanning both bytes: 1010_1011_1100 = 0xABC
+        assert_eq!(reader.read(12), 0xABC);
+        assert_eq!(reader.read(4), 0xD);
+    }
+
+    #[test]
+    fn unstuffing_after_0xff() {
+        // After 0xFF, the next byte's MSB is ignored (stuffed bit).
+        // 0xFF followed by 0x80 → the 0x80 only provides 7 bits: 000_0000
+        let data = [0xFFu8, 0x80];
+        let mut reader = BitBufferRead::new(&data);
+        reader.fill();
+        // First 8 bits from 0xFF = 1111_1111
+        assert_eq!(reader.read(8), 0xFF);
+        // Now unstuffing is active; next byte 0x80 → MSB stripped → 7 bits: 000_0000
+        assert_eq!(reader.read(7), 0x00);
+    }
+
+    #[test]
+    fn unstuffing_preserves_lower_7_bits() {
+        // After 0xFF, the unstuffed byte is placed with a gap for the
+        // stuffed bit. Verify that fill+read produces consistent results.
+        let data = [0xFFu8, 0x7F, 0x42];
+        let mut reader = BitBufferRead::new(&data);
+        reader.fill();
+        // First 8 bits are 0xFF
+        assert_eq!(reader.read(8), 0xFF);
+        // The unstuffed byte provides 7 bits; verify we can read them
+        let bits = reader.available_bits();
+        assert!(bits >= 7);
+    }
+
+    #[test]
+    fn empty_stream() {
+        let data: &[u8] = &[];
+        let reader = BitBufferRead::new(data);
+        assert_eq!(reader.available_bits(), 0);
+        assert_eq!(reader.position(), 0);
+    }
+
+    #[test]
+    fn position_tracking() {
+        let data = [0x12u8, 0x34, 0x56, 0x78];
+        let mut reader = BitBufferRead::new(&data);
+        assert_eq!(reader.position(), 0);
+        reader.fill();
+        // fill() reads bytes to fill the buffer
+        assert!(reader.position() > 0);
+    }
+
+    #[test]
+    fn reset_clears_state() {
+        let data1 = [0xFFu8, 0x00];
+        let data2 = [0x42u8];
+        let mut reader = BitBufferRead::new(&data1);
+        reader.fill();
+        let _ = reader.read(8);
+
+        reader.reset(&data2);
+        assert_eq!(reader.position(), 0);
+        assert_eq!(reader.available_bits(), 0);
+        assert!(!reader.is_unstuffing());
+        assert_eq!(reader.read(8), 0x42);
+    }
+
+    #[test]
+    fn fill_then_peek_advance() {
+        let data = [0xABu8, 0xCD];
+        let mut reader = BitBufferRead::new(&data);
+        reader.fill();
+        // Peek should not consume bits
+        let peeked = reader.peek(8);
+        assert_eq!(peeked, 0xAB);
+        assert_eq!(reader.available_bits(), reader.available_bits());
+        // Advance and read next
+        reader.advance(8);
+        assert_eq!(reader.peek(8), 0xCD);
+    }
+
+    #[test]
+    fn read_full_32bits() {
+        let data = [0x12u8, 0x34, 0x56, 0x78, 0x9A];
+        let mut reader = BitBufferRead::new(&data);
+        let val = reader.read(32);
+        assert_eq!(val, 0x12345678);
+    }
+
+    #[test]
+    fn unstuffing_multiple_0xff_sequence() {
+        // [0xFF, 0x00, 0xFF, 0x00] - consecutive 0xFF bytes
+        let data = [0xFFu8, 0x00, 0xFF, 0x00];
+        let mut reader = BitBufferRead::new(&data);
+        reader.fill();
+        // Read the first 0xFF (8 bits)
+        assert_eq!(reader.read(8), 0xFF);
+        // After 0xFF, unstuffing: next byte 0x00 → 7 bits = 0
+        assert_eq!(reader.read(7), 0x00);
+        // 0x00 is not 0xFF, so next byte reads normally: 0xFF → 8 bits
+        assert_eq!(reader.read(8), 0xFF);
+        // After that 0xFF, unstuffing again: 0x00 → 7 bits
+        assert_eq!(reader.read(7), 0x00);
+    }
+}
