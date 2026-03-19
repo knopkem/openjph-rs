@@ -312,6 +312,150 @@ impl CodestreamLocal {
         Ok(())
     }
 
+    // ----- Encode path -----
+
+    /// Exchange a line: push image data for the given component.
+    /// Returns `Some(next_line_index)` while more lines are needed,
+    /// `None` when all lines for all tiles have been pushed.
+    pub fn exchange(&mut self, line: &[i32], comp_num: u32) -> Result<Option<usize>> {
+        if self.tiles.is_empty() {
+            return Err(OjphError::Codec {
+                code: 0x00040001,
+                message: "no tiles built — call write_headers first".into(),
+            });
+        }
+
+        // Determine current tile for this line
+        let tile_idx = self.cur_tile_row * self.num_tiles.w;
+        if tile_idx as usize >= self.tiles.len() {
+            return Ok(None);
+        }
+
+        // Push to all tiles in the current row that this component belongs to
+        for tx in 0..self.num_tiles.w {
+            let idx = (self.cur_tile_row * self.num_tiles.w + tx) as usize;
+            if idx < self.tiles.len() {
+                let tile = &mut self.tiles[idx];
+                let tc = tile.tile_comps.get(comp_num as usize);
+                let tc_w = tc.map(|t| t.width()).unwrap_or(0);
+                let tc_h = tc.map(|t| t.height()).unwrap_or(0);
+
+                // Only push if we haven't filled this component yet
+                let lines_so_far = tile.tile_comps.get(comp_num as usize)
+                    .map(|t| t.lines.len() as u32).unwrap_or(0);
+                if lines_so_far < tc_h {
+                    // For multi-tile-column, slice the line for this tile's extent
+                    let tile_x0 = if tx == 0 { 0 } else {
+                        tile.tile_comps.get(comp_num as usize)
+                            .map(|t| t.comp_rect.org.x).unwrap_or(0) as usize
+                    };
+                    let tile_end = tile_x0 + tc_w as usize;
+                    let clipped_end = tile_end.min(line.len());
+                    let tile_line = if tile_x0 < clipped_end {
+                        &line[tile_x0..clipped_end]
+                    } else {
+                        &[]
+                    };
+                    self.tiles[idx].push_line(tile_line, comp_num)?;
+                }
+            }
+        }
+
+        self.cur_line += 1;
+
+        // Check if we need to advance to the next tile row
+        let tile = &self.tiles[(self.cur_tile_row * self.num_tiles.w) as usize];
+        let comp_h = tile.tile_comps.get(comp_num as usize)
+            .map(|t| t.height()).unwrap_or(0);
+        if self.cur_line >= comp_h {
+            // All lines for current tile row pushed for this component
+            // For single component or if all components done, advance tile row
+            self.cur_line = 0;
+        }
+
+        // Check if all lines across all tiles have been pushed
+        let total_lines = self.siz.get_height(comp_num);
+        let pushed_total: u32 = self.tiles.iter()
+            .filter(|t| t.tile_comps.get(comp_num as usize).is_some())
+            .map(|t| t.tile_comps[comp_num as usize].lines.len() as u32)
+            .sum::<u32>() / self.num_tiles.w;
+
+        if pushed_total >= total_lines {
+            Ok(None)
+        } else {
+            Ok(Some(pushed_total as usize))
+        }
+    }
+
+    /// Flush: encode all tiles and write tile data + EOC.
+    pub fn flush(&mut self, file: &mut dyn OutfileBase) -> Result<()> {
+        for tile in &mut self.tiles {
+            tile.encode_and_write(file)?;
+        }
+        // Write EOC marker
+        file.write(&markers::EOC.to_be_bytes())?;
+        Ok(())
+    }
+
+    // ----- Decode path -----
+
+    /// Create internal structures and decode the codestream.
+    /// Called after `read_headers()`. The file should be positioned after the
+    /// first SOT marker (consumed during read_headers).
+    pub fn create(&mut self, file: &mut dyn InfileBase) -> Result<()> {
+        if self.tiles.is_empty() {
+            return Err(OjphError::Codec {
+                code: 0x00040010,
+                message: "no tiles built — call read_headers first".into(),
+            });
+        }
+
+        // The first SOT marker was already consumed by read_headers.
+        // Read the first tile's data (SOT payload starts here).
+        self.tiles[0].read_tile_data(file)?;
+
+        // Read remaining tiles
+        for t in 1..self.tiles.len() {
+            // Read SOT marker
+            let mut marker_buf = [0u8; 2];
+            let n = file.read(&mut marker_buf)?;
+            if n < 2 {
+                break; // EOF
+            }
+            let marker = u16::from_be_bytes(marker_buf);
+            if marker == markers::EOC {
+                break;
+            }
+            if marker != markers::SOT {
+                // Skip unknown markers between tiles
+                continue;
+            }
+            self.tiles[t].read_tile_data(file)?;
+        }
+
+        self.cur_line = 0;
+        self.cur_comp = 0;
+        Ok(())
+    }
+
+    /// Pull a decoded line for the given component.
+    /// Returns `None` when all lines have been pulled.
+    pub fn pull(&mut self, comp_num: u32) -> Option<Vec<i32>> {
+        // For a single tile, just pull from it
+        if self.tiles.len() == 1 {
+            return self.tiles[0].pull_line(comp_num);
+        }
+
+        // For multiple tile rows, find the right tile
+        // (simplified: assume tiles are laid out in rows)
+        for tile in &mut self.tiles {
+            if let Some(line) = tile.pull_line(comp_num) {
+                return Some(line);
+            }
+        }
+        None
+    }
+
     /// Build tile structures from current parameters.
     fn build_tiles(&mut self) -> Result<()> {
         let ext = self.siz.get_image_extent();

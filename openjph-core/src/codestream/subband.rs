@@ -3,7 +3,11 @@
 //! Port of `ojph_subband.h/cpp`. A subband represents one frequency band
 //! (LL, HL, LH, or HH) at a particular resolution level.
 
+use crate::error::Result;
 use crate::types::*;
+use crate::coding::encoder::encode_codeblock32;
+use crate::coding::decoder32::decode_codeblock32;
+use super::codeblock::*;
 
 /// Subband types: LL (lowpass-lowpass), HL, LH, HH.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,6 +58,10 @@ pub struct Subband {
     pub num_blocks_x: u32,
     /// Number of codeblocks in y direction.
     pub num_blocks_y: u32,
+    /// Codeblocks in raster order (row by row).
+    pub codeblocks: Vec<Codeblock>,
+    /// Coefficient data (row-major, width × height).
+    pub coeffs: Vec<i32>,
 }
 
 impl Default for Subband {
@@ -68,6 +76,8 @@ impl Default for Subband {
             reversible: true,
             num_blocks_x: 0,
             num_blocks_y: 0,
+            codeblocks: Vec::new(),
+            coeffs: Vec::new(),
         }
     }
 }
@@ -80,7 +90,6 @@ impl Subband {
         band_rect: Rect,
         log_block_dims: Size,
     ) -> Self {
-        // Compute number of codeblocks
         let bw = 1u32 << log_block_dims.w;
         let bh = 1u32 << log_block_dims.h;
         let num_blocks_x = if band_rect.siz.w > 0 {
@@ -95,6 +104,25 @@ impl Subband {
         } else {
             0
         };
+
+        // Create codeblock objects
+        let first_x = (band_rect.org.x / bw) * bw;
+        let first_y = (band_rect.org.y / bh) * bh;
+        let mut codeblocks = Vec::with_capacity((num_blocks_x * num_blocks_y) as usize);
+        for by in 0..num_blocks_y {
+            for bx in 0..num_blocks_x {
+                let cb_x0 = (first_x + bx * bw).max(band_rect.org.x);
+                let cb_y0 = (first_y + by * bh).max(band_rect.org.y);
+                let cb_x1 = (first_x + (bx + 1) * bw).min(band_rect.org.x + band_rect.siz.w);
+                let cb_y1 = (first_y + (by + 1) * bh).min(band_rect.org.y + band_rect.siz.h);
+                let rect = Rect::new(
+                    Point::new(cb_x0, cb_y0),
+                    Size::new(cb_x1 - cb_x0, cb_y1 - cb_y0),
+                );
+                codeblocks.push(Codeblock::new(rect, log_block_dims));
+            }
+        }
+
         Self {
             band_type,
             resolution_num,
@@ -102,6 +130,7 @@ impl Subband {
             log_block_dims,
             num_blocks_x,
             num_blocks_y,
+            codeblocks,
             ..Default::default()
         }
     }
@@ -128,5 +157,139 @@ impl Subband {
     #[inline]
     pub fn total_blocks(&self) -> u32 {
         self.num_blocks_x * self.num_blocks_y
+    }
+
+    /// Encode all codeblocks in this subband using the HTJ2K block encoder.
+    pub fn encode_codeblocks(&mut self) -> Result<()> {
+        let sb_w = self.width();
+        if self.is_empty() {
+            return Ok(());
+        }
+
+        for cb in &mut self.codeblocks {
+            let cb_w = cb.width();
+            let cb_h = cb.height();
+            if cb_w == 0 || cb_h == 0 {
+                continue;
+            }
+
+            // Extract and convert coefficients: i32 → u32 (sign<<31 | magnitude)
+            let cb_x0 = cb.cb_rect.org.x - self.band_rect.org.x;
+            let cb_y0 = cb.cb_rect.org.y - self.band_rect.org.y;
+            let stride = cb_w;
+            let mut u32_buf = vec![0u32; (cb_w * cb_h) as usize];
+            let mut max_mag = 0u32;
+
+            for y in 0..cb_h {
+                for x in 0..cb_w {
+                    let coeff = self.coeffs[((cb_y0 + y) * sb_w + (cb_x0 + x)) as usize];
+                    let sign = if coeff < 0 { 1u32 } else { 0u32 };
+                    let mag = coeff.unsigned_abs();
+                    u32_buf[(y * stride + x) as usize] = (sign << 31) | mag;
+                    max_mag = max_mag.max(mag);
+                }
+            }
+
+            if max_mag == 0 {
+                cb.enc_state = Some(CodeblockEncState {
+                    pass1_bytes: 0,
+                    pass2_bytes: 0,
+                    num_passes: 0,
+                    missing_msbs: 0,
+                    has_data: false,
+                });
+                continue;
+            }
+
+            // The HTJ2K block coder operates on magnitudes where the MSB of
+            // the meaningful data is at bit position 30 (after sign in bit 31).
+            // p = 30 - missing_msbs is the number of significant bit-planes.
+            // We need to left-shift magnitudes so the MSB sits at bit 30.
+            let num_bits = 32 - max_mag.leading_zeros(); // bits needed for max_mag
+            let shift = 30 - (num_bits as i32 - 1);
+            let shift = shift.max(0) as u32;
+            let missing_msbs = shift; // = 30 - (num_bits - 1)
+
+            // Left-shift all magnitudes
+            if shift > 0 {
+                for v in &mut u32_buf {
+                    let sign = *v & 0x8000_0000;
+                    let mag = (*v & 0x7FFF_FFFF) << shift;
+                    *v = sign | mag;
+                }
+            }
+
+            let result = encode_codeblock32(&u32_buf, missing_msbs, 1, cb_w, cb_h, stride)?;
+
+            cb.enc_state = Some(CodeblockEncState {
+                pass1_bytes: result.length,
+                pass2_bytes: 0,
+                num_passes: 1,
+                missing_msbs,
+                has_data: true,
+            });
+            cb.coded_data = result.data[..result.length as usize].to_vec();
+        }
+        Ok(())
+    }
+
+    /// Decode all codeblocks and place coefficients into self.coeffs.
+    pub fn decode_codeblocks(&mut self) -> Result<()> {
+        let sb_w = self.width();
+        let sb_h = self.height();
+        if self.is_empty() {
+            return Ok(());
+        }
+
+        self.coeffs = vec![0i32; (sb_w * sb_h) as usize];
+
+        for cb in &mut self.codeblocks {
+            let cb_w = cb.width();
+            let cb_h = cb.height();
+            if cb_w == 0 || cb_h == 0 {
+                continue;
+            }
+
+            let dec = match &cb.dec_state {
+                Some(d) => d.clone(),
+                None => continue,
+            };
+
+            if dec.num_passes == 0 {
+                continue;
+            }
+
+            let stride = cb_w;
+            let mut decoded = vec![0u32; (cb_w * cb_h) as usize];
+
+            let _ok = decode_codeblock32(
+                &mut cb.coded_data,
+                &mut decoded,
+                dec.missing_msbs,
+                dec.num_passes,
+                dec.pass1_len,
+                dec.pass2_len,
+                cb_w,
+                cb_h,
+                stride,
+                false,
+            )?;
+
+            // The decoder produces magnitudes left-shifted by missing_msbs.
+            // Right-shift to recover original magnitude.
+            let shift = dec.missing_msbs;
+            let cb_x0 = cb.cb_rect.org.x - self.band_rect.org.x;
+            let cb_y0 = cb.cb_rect.org.y - self.band_rect.org.y;
+            for y in 0..cb_h {
+                for x in 0..cb_w {
+                    let val = decoded[(y * stride + x) as usize];
+                    let sign = (val >> 31) & 1;
+                    let mag = (val & 0x7FFF_FFFF) >> shift;
+                    let coeff = if sign != 0 { -(mag as i32) } else { mag as i32 };
+                    self.coeffs[((cb_y0 + y) * sb_w + (cb_x0 + x)) as usize] = coeff;
+                }
+            }
+        }
+        Ok(())
     }
 }

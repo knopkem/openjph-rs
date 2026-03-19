@@ -39,16 +39,22 @@ impl BitBufferWrite {
 
     /// Flush complete bytes from the buffer to the output, applying stuffing.
     fn flush_bytes(&mut self) {
-        while self.bits_used >= 8 {
-            let byte = (self.buf >> 56) as u8;
+        loop {
             if self.unstuff {
-                // After 0xFF, write only 7 bits (MSB is forced to 0)
-                let val = byte & 0x7F;
+                if self.bits_used < 7 {
+                    break;
+                }
+                // After 0xFF, output top 7 bits with MSB forced to 0
+                let val = ((self.buf >> 57) as u8) & 0x7F;
                 self.data.push(val);
                 self.buf <<= 7;
                 self.bits_used -= 7;
                 self.unstuff = false;
             } else {
+                if self.bits_used < 8 {
+                    break;
+                }
+                let byte = (self.buf >> 56) as u8;
                 self.data.push(byte);
                 self.buf <<= 8;
                 self.bits_used -= 8;
@@ -58,32 +64,30 @@ impl BitBufferWrite {
     }
 
     /// Flush all remaining bits, padding with zeros. Returns whether
-    /// the final byte was 0xFF (requires an extra zero byte).
+    /// a zero byte was appended after a trailing 0xFF.
     pub fn finalize(&mut self) -> bool {
-        // Pad remaining bits
-        if self.bits_used > 0 || self.unstuff {
-            let remaining = if self.unstuff { 7 } else { 8 };
-            if self.bits_used > 0 {
-                // Pad to a full byte boundary
-                let pad = remaining - (self.bits_used % remaining);
-                if pad < remaining {
-                    self.bits_used += pad;
-                }
-            } else if self.unstuff {
-                // Need to write a zero byte after 0xFF
+        let mut added_stuffing_zero = false;
+        while self.bits_used > 0 || self.unstuff {
+            if self.bits_used == 0 {
+                // unstuff is true: emit a zero byte after 0xFF
                 self.data.push(0);
                 self.unstuff = false;
-                return false;
+                added_stuffing_zero = true;
+            } else {
+                // Pad remaining bits to the next byte boundary
+                let byte_bits = if self.unstuff { 7u32 } else { 8u32 };
+                if self.bits_used < byte_bits {
+                    self.bits_used = byte_bits;
+                } else {
+                    let rem = self.bits_used % byte_bits;
+                    if rem != 0 {
+                        self.bits_used += byte_bits - rem;
+                    }
+                }
+                self.flush_bytes();
             }
-            self.flush_bytes();
         }
-        // If the last byte written was 0xFF, append a 0x00
-        if self.unstuff {
-            self.data.push(0);
-            self.unstuff = false;
-            return true;
-        }
-        false
+        added_stuffing_zero
     }
 
     /// Get the written data.
@@ -290,19 +294,45 @@ mod tests {
     fn roundtrip_with_byte_stuffing() {
         use super::super::bitbuffer_read::BitBufferRead;
 
+        // Test 1: 0xFF followed by normal data
         let mut writer = BitBufferWrite::new();
-        // Write bit patterns that will produce 0xFF bytes in the output.
-        // The writer handles stuffing, the reader handles unstuffing.
-        // Test with a simpler pattern that exercises stuffing.
-        writer.write(0xFF, 8); // This produces a 0xFF byte, triggering stuffing
-        writer.write(0x55, 8); // Next byte will be stuffed (MSB forced 0)
+        writer.write(0xFF, 8);
+        writer.write(0x55, 8);
         writer.finalize();
 
         let data = writer.get_data();
-        // Verify the first byte is 0xFF
         assert_eq!(data[0], 0xFF);
-        // After 0xFF, next byte must have MSB clear
-        assert_eq!(data[1] & 0x80, 0);
+        assert_eq!(data[1] & 0x80, 0); // MSB forced to 0 after 0xFF
+
+        let mut reader = BitBufferRead::new(data);
+        assert_eq!(reader.read(8), 0xFF);
+        assert_eq!(reader.read(8), 0x55);
+
+        // Test 2: multiple 0xFF bytes
+        let mut writer = BitBufferWrite::new();
+        writer.write(0xFF, 8);
+        writer.write(0xFF, 8);
+        writer.write(0xAA, 8);
+        writer.finalize();
+
+        let data = writer.get_data();
+        let mut reader = BitBufferRead::new(data);
+        assert_eq!(reader.read(8), 0xFF);
+        assert_eq!(reader.read(8), 0xFF);
+        assert_eq!(reader.read(8), 0xAA);
+
+        // Test 3: 0xFF with mixed bit-width writes
+        let mut writer = BitBufferWrite::new();
+        writer.write(0xFF, 8);
+        writer.write(0x5, 3);  // 101
+        writer.write(0xA, 4);  // 1010
+        writer.finalize();
+
+        let data = writer.get_data();
+        let mut reader = BitBufferRead::new(data);
+        assert_eq!(reader.read(8), 0xFF);
+        assert_eq!(reader.read(3), 0x5);
+        assert_eq!(reader.read(4), 0xA);
     }
 
     #[test]

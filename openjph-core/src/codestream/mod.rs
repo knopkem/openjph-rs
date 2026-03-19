@@ -130,11 +130,35 @@ impl Codestream {
         self.inner.write_headers(file, comments)
     }
 
+    /// Exchange a line — push image data for the given component.
+    /// Returns `Some(next_line_index)` while more lines are needed,
+    /// `None` when all lines have been pushed.
+    pub fn exchange(&mut self, line: &[i32], comp_num: u32) -> Result<Option<usize>> {
+        self.inner.exchange(line, comp_num)
+    }
+
+    /// Flush: encode all tiles and write tile data + EOC marker.
+    pub fn flush(&mut self, file: &mut dyn OutfileBase) -> Result<()> {
+        self.inner.flush(file)
+    }
+
     // ----- Read path -----
 
     /// Read codestream headers from the input file.
     pub fn read_headers(&mut self, file: &mut dyn InfileBase) -> Result<()> {
         self.inner.read_headers(file)
+    }
+
+    /// Create internal structures and decode the codestream.
+    /// Call after `read_headers()`.
+    pub fn create(&mut self, file: &mut dyn InfileBase) -> Result<()> {
+        self.inner.create(file)
+    }
+
+    /// Pull a decoded line for the given component.
+    /// Returns `None` when all lines have been pulled.
+    pub fn pull(&mut self, comp_num: u32) -> Option<Vec<i32>> {
+        self.inner.pull(comp_num)
     }
 
     // ----- Query -----

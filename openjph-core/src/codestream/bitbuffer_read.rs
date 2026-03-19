@@ -38,7 +38,7 @@ impl<'a> BitBufferRead<'a> {
             self.pos += 1;
             let bits_to_add = if self.unstuff { 7 } else { 8 };
             let val = if self.unstuff { byte & 0x7F } else { byte };
-            self.buf |= val << (56 - self.bits_left - (8 - bits_to_add));
+            self.buf |= val << (64 - bits_to_add - self.bits_left);
             self.bits_left += bits_to_add;
             self.unstuff = (self.data[self.pos - 1]) == 0xFF;
         }
@@ -134,6 +134,16 @@ mod tests {
         // Read 12 bits spanning both bytes: 1010_1011_1100 = 0xABC
         assert_eq!(reader.read(12), 0xABC);
         assert_eq!(reader.read(4), 0xD);
+    }
+
+    #[test]
+    fn multiple_reads_across_bytes() {
+        // [0xAB, 0xCD] = 0b10101011_11001101
+        let data = [0xABu8, 0xCD];
+        let mut reader = BitBufferRead::new(&data);
+        assert_eq!(reader.read(4), 0b1010);     // 0xA
+        assert_eq!(reader.read(8), 0b10111100);  // 0xBC (spans bytes)
+        assert_eq!(reader.read(4), 0b1101);      // 0xD
     }
 
     #[test]
