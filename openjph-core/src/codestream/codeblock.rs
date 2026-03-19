@@ -85,12 +85,14 @@ impl Codeblock {
     }
 
     /// True if this codeblock has zero area (empty).
+    #[allow(dead_code)]
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.cb_rect.siz.w == 0 || self.cb_rect.siz.h == 0
     }
 
     /// Clear encoded/decoded state (reset for reuse).
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.enc_state = None;
         self.dec_state = None;

@@ -4,6 +4,8 @@
 //! same resolution level. It also contains tag trees for signalling
 //! inclusion and zero-bitplane information.
 
+#![allow(dead_code)]
+
 use crate::types::*;
 
 // =========================================================================
@@ -14,7 +16,7 @@ use crate::types::*;
 ///
 /// The tag tree is a hierarchical structure where each node stores a value.
 /// Leaf nodes correspond to codeblocks. Internal nodes summarize children.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TagTree {
     /// Node values at each level, stored level by level.
     nodes: Vec<u32>,
@@ -24,17 +26,6 @@ pub struct TagTree {
     heights: Vec<u32>,
     /// Number of levels.
     num_levels: u32,
-}
-
-impl Default for TagTree {
-    fn default() -> Self {
-        Self {
-            nodes: Vec::new(),
-            widths: Vec::new(),
-            heights: Vec::new(),
-            num_levels: 0,
-        }
-    }
 }
 
 impl TagTree {

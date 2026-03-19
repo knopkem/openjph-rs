@@ -3,6 +3,8 @@
 //! Provides SIMD primitives used by the HTJ2K block encoder/decoder, such as
 //! population count vectorization and magnitude computation.
 
+#![allow(dead_code)]
+
 #[cfg(target_arch = "aarch64")]
 use core::arch::aarch64::*;
 

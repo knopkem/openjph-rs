@@ -119,7 +119,7 @@ unsafe fn neon_rev_vert_step32(
         }
     } else if a == -1 && b == 1 && e == 1 {
         // 5/3 predict step: specialized fast path
-        let vone = vdupq_n_s32(1);
+        let _vone = vdupq_n_s32(1);
         if synthesis {
             for _ in 0..simd_count {
                 let d = vld1q_s32(dst);

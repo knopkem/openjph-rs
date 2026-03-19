@@ -92,6 +92,7 @@ impl ProgressionOrder {
     }
 
     /// Parses a progression order from a case-insensitive string.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_uppercase().as_str() {
             "LRCP" => Some(Self::LRCP),
@@ -138,6 +139,7 @@ pub enum ProfileNum {
 
 impl ProfileNum {
     /// Parses a profile name from a case-insensitive string.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_uppercase().as_str() {
             "PROFILE0" => Some(Self::Profile0),
@@ -171,11 +173,13 @@ pub(crate) const TILEPART_MASK: u32 = 0x3;
 // =========================================================================
 
 #[inline]
+#[allow(dead_code)]
 pub(crate) fn swap_byte_u16(v: u16) -> u16 {
     v.swap_bytes()
 }
 
 #[inline]
+#[allow(dead_code)]
 pub(crate) fn swap_byte_u32(v: u32) -> u32 {
     v.swap_bytes()
 }
@@ -247,8 +251,10 @@ pub(crate) struct SizCompInfo {
 // param_siz — Image and Tile Size marker segment
 // =========================================================================
 
+#[allow(dead_code)]
 pub(crate) const RSIZ_NLT_FLAG: u16 = 0x200;
 pub(crate) const RSIZ_HT_FLAG: u16 = 0x4000;
+#[allow(dead_code)]
 pub(crate) const RSIZ_EXT_FLAG: u16 = 0x8000;
 
 /// SIZ marker segment — image and tile size parameters.
@@ -707,6 +713,7 @@ pub(crate) const DWT_REV53: u8 = 1;
 // COD type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CodType {
+    #[allow(dead_code)]
     Undefined,
     CodMain,
     CocMain,
@@ -1363,6 +1370,7 @@ mod bibo_gains {
 }
 
 // Sqrt energy gains for irreversible quantization
+#[allow(clippy::excessive_precision)]
 mod sqrt_energy_gains {
     pub fn get_gain_l(num_decomps: u32, _rev: bool) -> f32 {
         static GAINS_L: [f32; 34] = [
@@ -1552,7 +1560,7 @@ impl ParamQcd {
         let gain_l = sqrt_energy_gains::get_gain_l(num_decomps, false);
         let delta_b = self.base_delta / (gain_l * gain_l);
         let (exp, mantissa) = quantize_delta(delta_b);
-        sp[s] = ((exp as u16) << 11) | mantissa;
+        sp[s] = (exp << 11) | mantissa;
         s += 1;
 
         for d in (1..=num_decomps).rev() {
@@ -1561,14 +1569,14 @@ impl ParamQcd {
 
             let delta_b = self.base_delta / (gl * gh);
             let (exp, mantissa) = quantize_delta(delta_b);
-            sp[s] = ((exp as u16) << 11) | mantissa;
+            sp[s] = (exp << 11) | mantissa;
             s += 1;
-            sp[s] = ((exp as u16) << 11) | mantissa;
+            sp[s] = (exp << 11) | mantissa;
             s += 1;
 
             let delta_b = self.base_delta / (gh * gh);
             let (exp, mantissa) = quantize_delta(delta_b);
-            sp[s] = ((exp as u16) << 11) | mantissa;
+            sp[s] = (exp << 11) | mantissa;
             s += 1;
         }
         self.sp_qcd = SpqcdData::Irreversible(sp);
@@ -1651,13 +1659,13 @@ impl ParamQcd {
         ok &= write_u8(file, self.sqcd)?;
         match &self.sp_qcd {
             SpqcdData::Reversible(data) => {
-                for i in 0..self.num_subbands as usize {
-                    ok &= write_u8(file, data[i])?;
+                for item in data.iter().take(self.num_subbands as usize) {
+                    ok &= write_u8(file, *item)?;
                 }
             }
             SpqcdData::Irreversible(data) => {
-                for i in 0..self.num_subbands as usize {
-                    ok &= write_u16_be(file, data[i])?;
+                for item in data.iter().take(self.num_subbands as usize) {
+                    ok &= write_u16_be(file, *item)?;
                 }
             }
         }
@@ -1693,13 +1701,13 @@ impl ParamQcd {
         ok &= write_u8(file, self.sqcd)?;
         match &self.sp_qcd {
             SpqcdData::Reversible(data) => {
-                for i in 0..self.num_subbands as usize {
-                    ok &= write_u8(file, data[i])?;
+                for item in data.iter().take(self.num_subbands as usize) {
+                    ok &= write_u8(file, *item)?;
                 }
             }
             SpqcdData::Irreversible(data) => {
-                for i in 0..self.num_subbands as usize {
-                    ok &= write_u16_be(file, data[i])?;
+                for item in data.iter().take(self.num_subbands as usize) {
+                    ok &= write_u16_be(file, *item)?;
                 }
             }
         }
@@ -1725,8 +1733,8 @@ impl ParamQcd {
                 });
             }
             let mut data = vec![0u8; self.num_subbands as usize];
-            for i in 0..self.num_subbands as usize {
-                data[i] = read_u8(file).map_err(|_| OjphError::Codec {
+            for item in data.iter_mut().take(self.num_subbands as usize) {
+                *item = read_u8(file).map_err(|_| OjphError::Codec {
                     code: 0x00050084,
                     message: "error reading QCD marker".into(),
                 })?;
@@ -1741,8 +1749,8 @@ impl ParamQcd {
                 });
             }
             let mut data = vec![0u16; self.num_subbands as usize];
-            for i in 0..self.num_subbands as usize {
-                data[i] = read_u16_be(file).map_err(|_| OjphError::Codec {
+            for item in data.iter_mut().take(self.num_subbands as usize) {
+                *item = read_u16_be(file).map_err(|_| OjphError::Codec {
                     code: 0x00050087,
                     message: "error reading QCD marker".into(),
                 })?;
@@ -1783,8 +1791,8 @@ impl ParamQcd {
         if irrev == 0 {
             self.num_subbands = (self.lqcd as u32).saturating_sub(offset);
             let mut data = vec![0u8; self.num_subbands as usize];
-            for i in 0..self.num_subbands as usize {
-                data[i] = read_u8(file).map_err(|_| OjphError::Codec {
+            for item in data.iter_mut().take(self.num_subbands as usize) {
+                *item = read_u8(file).map_err(|_| OjphError::Codec {
                     code: 0x000500A6,
                     message: "error reading QCC marker".into(),
                 })?;
@@ -1793,8 +1801,8 @@ impl ParamQcd {
         } else if irrev == 2 {
             self.num_subbands = ((self.lqcd as u32).saturating_sub(offset)) / 2;
             let mut data = vec![0u16; self.num_subbands as usize];
-            for i in 0..self.num_subbands as usize {
-                data[i] = read_u16_be(file).map_err(|_| OjphError::Codec {
+            for item in data.iter_mut().take(self.num_subbands as usize) {
+                *item = read_u16_be(file).map_err(|_| OjphError::Codec {
                     code: 0x000500A9,
                     message: "error reading QCC marker".into(),
                 })?;
@@ -2205,8 +2213,7 @@ impl ParamNlt {
                 return &mut self.children[i];
             }
         }
-        let mut child = ParamNlt::default();
-        child.cnlt = comp_num as u16;
+        let child = ParamNlt { cnlt: comp_num as u16, ..Default::default() };
         self.children.push(child);
         self.children.last_mut().unwrap()
     }
@@ -2269,9 +2276,10 @@ impl ParamNlt {
 // param_dfs — Downsampling Factor Styles
 // =========================================================================
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
-pub(crate) enum DfsDwtType {
+pub enum DfsDwtType {
     NoDwt = 0,
     BidirDwt = 1,
     HorzDwt = 2,
@@ -2301,12 +2309,9 @@ impl ParamDfs {
         if self.sdfs == index as u16 {
             return Some(self);
         }
-        for child in &self.children {
-            if child.sdfs == index as u16 {
-                return Some(child);
-            }
-        }
-        None
+        self.children
+            .iter()
+            .find(|child| child.sdfs == index as u16)
     }
 
     pub fn get_dwt_type(&self, decomp_level: u32) -> DfsDwtType {
@@ -2367,21 +2372,12 @@ impl ParamDfs {
 /// Holds the comment body and registration value (Rcom):
 /// - `rcom = 0` — binary data
 /// - `rcom = 1` — Latin text (ISO 8859-15)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CommentExchange {
     /// Comment body bytes.
     pub data: Vec<u8>,
     /// Registration value (0 = binary, 1 = Latin text).
     pub rcom: u16,
-}
-
-impl Default for CommentExchange {
-    fn default() -> Self {
-        Self {
-            data: Vec::new(),
-            rcom: 0,
-        }
-    }
 }
 
 impl CommentExchange {

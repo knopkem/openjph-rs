@@ -11,6 +11,7 @@ pub(crate) mod x86;
 
 /// Generic signed-to-unsigned conversion for samples.
 /// Converts signed integer samples to unsigned by adding an offset of 2^(bit_depth-1).
+#[allow(dead_code)]
 #[inline]
 pub fn gen_convert_signed_to_unsigned(src: &[i32], dst: &mut [i32], width: u32, bit_depth: u32) {
     let offset = 1i32 << (bit_depth - 1);
@@ -21,6 +22,7 @@ pub fn gen_convert_signed_to_unsigned(src: &[i32], dst: &mut [i32], width: u32, 
 
 /// Generic unsigned-to-signed conversion for samples.
 /// Converts unsigned integer samples to signed by subtracting 2^(bit_depth-1).
+#[allow(dead_code)]
 #[inline]
 pub fn gen_convert_unsigned_to_signed(src: &[i32], dst: &mut [i32], width: u32, bit_depth: u32) {
     let offset = 1i32 << (bit_depth - 1);

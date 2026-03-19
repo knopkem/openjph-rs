@@ -123,6 +123,7 @@ impl ParamAtk {
     }
 
     /// Initializes for the standard irreversible 9/7 wavelet.
+    #[allow(clippy::excessive_precision)]
     pub fn init_irv97(&mut self) {
         // Match OpenJPH's stored step order in param_atk::init_irv97().
         const DELTA: f32 = 0.443_506_85; // step 0

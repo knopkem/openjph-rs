@@ -3,6 +3,8 @@
 //! Decodes one codeblock, processing the cleanup, significance-propagation,
 //! and magnitude-refinement passes.  Uses 64-bit sample representation.
 
+#![allow(dead_code, clippy::identity_op, clippy::erasing_op)]
+
 use crate::arch::{count_leading_zeros_u64, population_count};
 use crate::types::ojph_max;
 
@@ -549,6 +551,7 @@ impl<'a> FrwdStruct64<'a> {
 /// Returns `Ok(true)` on success, `Ok(false)` for non-fatal decode failures
 /// (malformed data that can be silently skipped).
 #[allow(unused_assignments)]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn decode_codeblock64(
     coded_data: &mut [u8],
     decoded_data: &mut [u64],

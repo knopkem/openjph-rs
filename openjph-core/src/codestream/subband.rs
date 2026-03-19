@@ -24,6 +24,7 @@ pub enum SubbandType {
 }
 
 impl SubbandType {
+    #[allow(dead_code)]
     pub fn from_index(i: u32) -> Self {
         match i {
             0 => Self::LL,
@@ -47,6 +48,7 @@ pub struct Subband {
     /// Subband rectangle in the coordinate space of the resolution.
     pub band_rect: Rect,
     /// Log2 of the codeblock dimensions used in this subband.
+    #[allow(dead_code)]
     pub log_block_dims: Size,
     /// Number of missing MSBs (Kmax from quantization).
     pub k_max: u32,
@@ -156,6 +158,7 @@ impl Subband {
 
     /// Total number of codeblocks.
     #[inline]
+    #[allow(dead_code)]
     pub fn total_blocks(&self) -> u32 {
         self.num_blocks_x * self.num_blocks_y
     }
@@ -186,9 +189,7 @@ impl Subband {
 
             if self.reversible {
                 let shift = 31u32.saturating_sub(self.k_max);
-                for v in &mut u32_buf {
-                    *v = 0;
-                }
+                u32_buf.fill(0);
                 for y in 0..cb_h {
                     for x in 0..cb_w {
                         let coeff = self.coeffs[((cb_y0 + y) * sb_w + (cb_x0 + x)) as usize];
@@ -223,11 +224,7 @@ impl Subband {
                 continue;
             }
 
-            let missing_msbs = if self.reversible {
-                self.k_max.saturating_sub(1)
-            } else {
-                self.k_max.saturating_sub(1)
-            };
+            let missing_msbs = self.k_max.saturating_sub(1);
 
             let result = encode_codeblock32(&u32_buf, missing_msbs, 1, cb_w, cb_h, stride)?;
 
@@ -299,11 +296,7 @@ impl Subband {
                     let idx = ((cb_y0 + y) * sb_w + (cb_x0 + x)) as usize;
                     if self.reversible {
                         let mag = (val & 0x7FFF_FFFF) >> shift;
-                        self.coeffs[idx] = if sign != 0 {
-                            -(mag as i32)
-                        } else {
-                            mag as i32
-                        };
+                        self.coeffs[idx] = if sign != 0 { -(mag as i32) } else { mag as i32 };
                     } else {
                         // Irreversible: dequantize to float, keep full precision
                         let mag = (val & 0x7FFF_FFFF) as f32 * self.delta;

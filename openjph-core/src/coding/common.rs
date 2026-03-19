@@ -3,6 +3,8 @@
 //! Port of `ojph_block_common.h/cpp` — lazily-initialised VLC / UVLC
 //! decoder and encoder lookup tables.
 
+#![allow(clippy::identity_op)]
+
 use std::sync::OnceLock;
 
 use super::tables::{VlcSrcEntry, VLC_SRC_TABLE0, VLC_SRC_TABLE1};
@@ -43,7 +45,9 @@ pub(crate) struct UvlcEncEntry {
     pub pre_len: u8,
     pub suf: u8,
     pub suf_len: u8,
+    #[allow(dead_code)]
     pub ext: u8,
+    #[allow(dead_code)]
     pub ext_len: u8,
 }
 
@@ -362,24 +366,24 @@ fn uvlc_init_enc_tables(t: &mut EncoderTables) {
         ext_len: 0,
     };
 
-    for i in 5..33usize {
-        tbl[i] = UvlcEncEntry {
+    for (i, entry) in tbl[5..33].iter_mut().enumerate() {
+        *entry = UvlcEncEntry {
             pre: 0,
             pre_len: 3,
-            suf: (i - 5) as u8,
+            suf: i as u8,
             suf_len: 5,
             ext: 0,
             ext_len: 0,
         };
     }
 
-    for i in 33..75usize {
-        tbl[i] = UvlcEncEntry {
+    for (j, entry) in tbl[33..75].iter_mut().enumerate() {
+        *entry = UvlcEncEntry {
             pre: 0,
             pre_len: 3,
-            suf: (28 + (i - 33) % 4) as u8,
+            suf: (28 + j % 4) as u8,
             suf_len: 5,
-            ext: ((i - 33) / 4) as u8,
+            ext: (j / 4) as u8,
             ext_len: 4,
         };
     }

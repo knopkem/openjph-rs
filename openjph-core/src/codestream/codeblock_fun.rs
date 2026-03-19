@@ -3,6 +3,8 @@
 //! Port of `ojph_codeblock_fun.h/cpp`. Provides function pointer tables
 //! for block encoding/decoding that can be swapped for SIMD variants.
 
+#![allow(dead_code)]
+
 /// Function signature for block decoder (32-bit path).
 pub type BlockDecodeFn = fn(
     coded_data: &[u8],
@@ -33,19 +35,10 @@ pub type BlockEncodeFn = fn(
 ) -> bool;
 
 /// Runtime-dispatched codeblock function table.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CodeblockFuns {
     pub decode: Option<BlockDecodeFn>,
     pub encode: Option<BlockEncodeFn>,
-}
-
-impl Default for CodeblockFuns {
-    fn default() -> Self {
-        Self {
-            decode: None,
-            encode: None,
-        }
-    }
 }
 
 impl CodeblockFuns {

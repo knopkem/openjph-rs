@@ -3,6 +3,8 @@
 //! Port of `ojph_tile.h/cpp`. A tile is the top-level subdivision of the
 //! image. Each tile contains tile-components.
 
+#![allow(dead_code)]
+
 use super::bitbuffer_write::BitBufferWrite;
 use super::codeblock::CodeblockDecState;
 use super::tile_comp::TileComp;
@@ -361,7 +363,7 @@ impl Tile {
             tile_rect.siz.h
         };
 
-        let tile = Self {
+        Self {
             tile_idx,
             tile_rect,
             tile_comps,
@@ -376,9 +378,7 @@ impl Tile {
             cur_line: 0,
             num_lines,
             skipped_res_for_recon,
-        };
-
-        tile
+        }
     }
 
     /// Width of this tile.
@@ -502,6 +502,7 @@ impl Tile {
     }
 
     /// Write a single packet (header + body) for one precinct at a resolution.
+    #[allow(clippy::incompatible_msrv)]
     fn write_packet(res: &super::resolution::Resolution) -> Result<Vec<u8>> {
         let mut header = BitBufferWrite::new();
         let mut body: Vec<u8> = Vec::new();
@@ -516,7 +517,8 @@ impl Tile {
             let num_levels = 1 + log2ceil(sb.num_blocks_x).max(log2ceil(sb.num_blocks_y));
             let mut inc_tag = PacketTagTree::new(sb.num_blocks_x, sb.num_blocks_y, num_levels, 255);
             let mut inc_flags = PacketTagTree::new(sb.num_blocks_x, sb.num_blocks_y, num_levels, 0);
-            let mut mmsb_tag = PacketTagTree::new(sb.num_blocks_x, sb.num_blocks_y, num_levels, 255);
+            let mut mmsb_tag =
+                PacketTagTree::new(sb.num_blocks_x, sb.num_blocks_y, num_levels, 255);
             let mut mmsb_flags =
                 PacketTagTree::new(sb.num_blocks_x, sb.num_blocks_y, num_levels, 0);
 
@@ -628,7 +630,8 @@ impl Tile {
                     if data_len > cb.coded_data.len() {
                         return Err(OjphError::Codec {
                             code: 0x00060021,
-                            message: "encoded codeblock body shorter than packet header length".into(),
+                            message: "encoded codeblock body shorter than packet header length"
+                                .into(),
                         });
                     }
                     body.extend_from_slice(&cb.coded_data[..data_len]);

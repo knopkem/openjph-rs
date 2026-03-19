@@ -7,6 +7,8 @@
 //! `i32` and `i64` paths are provided; for irreversible transforms, only
 //! the `f32` path is used.
 
+#![allow(clippy::manual_swap)]
+
 use super::{LiftingStep, ParamAtk};
 use crate::mem::{LineBuf, LineBufData, LFT_32BIT};
 

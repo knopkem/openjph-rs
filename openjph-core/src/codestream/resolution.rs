@@ -3,6 +3,8 @@
 //! Port of `ojph_resolution.h/cpp`. A resolution level contains 1 or 3 subbands
 //! and is divided into precincts.
 
+#![allow(dead_code)]
+
 use super::subband::{Subband, SubbandType};
 use crate::types::*;
 

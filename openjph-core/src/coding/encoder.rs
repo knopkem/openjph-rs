@@ -213,6 +213,7 @@ impl MsEncoder {
     }
 
     /// Encodes up to 64 bits of magnitude-sign data (for the 64-bit path).
+    #[allow(dead_code)]
     #[inline]
     fn encode64(&mut self, mut cwd: u64, mut cwd_len: i32) -> Result<()> {
         while cwd_len > 0 {
@@ -272,7 +273,7 @@ fn terminate_mel_vlc(mel: &mut MelEncoder, vlc: &mut VlcEncoder) -> Result<()> {
         mel.emit_bit(1)?;
     }
 
-    mel.tmp = mel.tmp << mel.remaining_bits;
+    mel.tmp <<= mel.remaining_bits;
     let mel_mask = (0xFF << mel.remaining_bits) & 0xFF;
     let vlc_mask = 0xFF >> (8 - vlc.used_bits);
 
@@ -338,7 +339,7 @@ fn assemble_output(ms: &MsEncoder, mel: &MelEncoder, vlc: &VlcEncoder) -> Encode
         .copy_from_slice(&vlc.buf[vlc_buf_end + 1 - vlc.pos as usize..=vlc_buf_end]);
 
     // Interface locator word (12 bits at end of buffer)
-    let num_bytes = (mel.pos + vlc.pos) as u32;
+    let num_bytes = mel.pos + vlc.pos;
     if total_len >= 2 {
         data[total_len - 1] = (num_bytes >> 4) as u8;
         data[total_len - 2] = (data[total_len - 2] & 0xF0) | (num_bytes & 0xF) as u8;
@@ -374,6 +375,7 @@ fn prepare_sample32(t: u32, p: u32) -> (bool, i32, u32) {
 }
 
 /// Extracts significance, exponent, and v_n from a single 64-bit sample.
+#[allow(dead_code)]
 #[inline]
 fn prepare_sample64(t: u64, p: u32) -> (bool, i32, u64) {
     let mut val = t.wrapping_add(t);
@@ -417,6 +419,7 @@ fn encode_quad_ms32(
 }
 
 /// Encodes the four MagSgn values for a quad (64-bit path).
+#[allow(dead_code)]
 #[inline]
 fn encode_quad_ms64(
     ms: &mut MsEncoder,
@@ -488,7 +491,7 @@ pub(crate) fn encode_codeblock32(
     let uvlc_tbl = &tables.uvlc_tbl;
 
     // Buffer sizes (generous upper bounds)
-    const MS_SIZE: usize = (16384 * 16 + 14) / 15;
+    const MS_SIZE: usize = (16384_usize * 16).div_ceil(15);
     const MEL_VLC_SIZE: usize = 3072;
     const MEL_SIZE: usize = 192;
     const VLC_SIZE: usize = MEL_VLC_SIZE - MEL_SIZE;
@@ -508,11 +511,7 @@ pub(crate) fn encode_codeblock32(
     // Initial row of quads (y = 0)
     // -----------------------------------------------------------------------
     {
-        let mut e_qmax = [0i32; 2];
-        let mut e_q = [0i32; 8];
-        let mut rho = [0i32; 2];
         let mut c_q0: i32 = 0;
-        let mut s = [0u32; 8];
 
         let mut lep: usize = 0; // index into e_val
         let mut lcxp: usize = 0; // index into cx_val
@@ -524,10 +523,10 @@ pub(crate) fn encode_codeblock32(
         let mut x: u32 = 0;
         while x < width {
             // Reset per-pair state
-            e_qmax = [0; 2];
-            e_q = [0; 8];
-            rho = [0; 2];
-            s = [0; 8];
+            let mut e_qmax = [0i32; 2];
+            let mut e_q = [0i32; 8];
+            let mut rho = [0i32; 2];
+            let mut s = [0u32; 8];
 
             // --- Quad 0: samples (x, 0), (x, 1), (x+1, 0), (x+1, 1) ---
 
@@ -710,19 +709,14 @@ pub(crate) fn encode_codeblock32(
 
             let row_offset = (y * stride) as usize;
 
-            let mut e_qmax = [0i32; 2];
-            let mut e_q = [0i32; 8];
-            let mut rho = [0i32; 2];
-            let mut s = [0u32; 8];
-
             let mut sp: usize = row_offset;
 
             let mut x: u32 = 0;
             while x < width {
-                e_qmax = [0; 2];
-                e_q = [0; 8];
-                rho = [0; 2];
-                s = [0; 8];
+                let mut e_qmax = [0i32; 2];
+                let mut e_q = [0i32; 8];
+                let mut rho = [0i32; 2];
+                let mut s = [0u32; 8];
 
                 // --- Quad 0 ---
                 let t = buf[sp];
@@ -952,6 +946,7 @@ fn encode_uvlc32(
 }
 
 /// UVLC encoding for initial rows (64-bit path) — includes ext fields.
+#[allow(dead_code)]
 #[inline]
 fn encode_uvlc64(
     vlc: &mut VlcEncoder,
@@ -995,6 +990,7 @@ fn encode_uvlc64(
 ///
 /// Same algorithm as `encode_codeblock32` but operates on 64-bit samples,
 /// uses `ms_encode64`, and includes UVLC extension fields.
+#[allow(dead_code)]
 pub(crate) fn encode_codeblock64(
     buf: &[u64],
     missing_msbs: u32,
@@ -1011,7 +1007,7 @@ pub(crate) fn encode_codeblock64(
     let vlc_tbl1 = &tables.vlc_tbl1;
     let uvlc_tbl = &tables.uvlc_tbl;
 
-    const MS_SIZE: usize = (22528 * 16 + 14) / 15;
+    const MS_SIZE: usize = (22528_usize * 16).div_ceil(15);
     const MEL_VLC_SIZE: usize = 3072;
     const MEL_SIZE: usize = 192;
     const VLC_SIZE: usize = MEL_VLC_SIZE - MEL_SIZE;
@@ -1029,11 +1025,7 @@ pub(crate) fn encode_codeblock64(
     // Initial row of quads (y = 0)
     // -----------------------------------------------------------------------
     {
-        let mut e_qmax = [0i32; 2];
-        let mut e_q = [0i32; 8];
-        let mut rho = [0i32; 2];
         let mut c_q0: i32 = 0;
-        let mut s = [0u64; 8];
 
         let mut lep: usize = 0;
         let mut lcxp: usize = 0;
@@ -1044,10 +1036,10 @@ pub(crate) fn encode_codeblock64(
 
         let mut x: u32 = 0;
         while x < width {
-            e_qmax = [0; 2];
-            e_q = [0; 8];
-            rho = [0; 2];
-            s = [0; 8];
+            let mut e_qmax = [0i32; 2];
+            let mut e_q = [0i32; 8];
+            let mut rho = [0i32; 2];
+            let mut s = [0u64; 8];
 
             // --- Quad 0 ---
             let t = buf[sp];
@@ -1224,19 +1216,14 @@ pub(crate) fn encode_codeblock64(
 
             let row_offset = (y as usize) * (stride as usize);
 
-            let mut e_qmax = [0i32; 2];
-            let mut e_q = [0i32; 8];
-            let mut rho = [0i32; 2];
-            let mut s = [0u64; 8];
-
             let mut sp: usize = row_offset;
 
             let mut x: u32 = 0;
             while x < width {
-                e_qmax = [0; 2];
-                e_q = [0; 8];
-                rho = [0; 2];
-                s = [0; 8];
+                let mut e_qmax = [0i32; 2];
+                let mut e_q = [0i32; 8];
+                let mut rho = [0i32; 2];
+                let mut s = [0u64; 8];
 
                 // --- Quad 0 ---
                 let t = buf[sp];

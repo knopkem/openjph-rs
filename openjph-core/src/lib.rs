@@ -298,9 +298,9 @@ mod pipeline_tests {
 #[cfg(test)]
 mod debug_roundtrip_test {
     use super::*;
+    use crate::codestream::Codestream;
     use crate::coding::decoder32::decode_codeblock32;
     use crate::coding::encoder::encode_codeblock32;
-    use crate::codestream::Codestream;
     use crate::file::{MemInfile, MemOutfile};
     use crate::types::{Point, Size};
 
@@ -404,7 +404,8 @@ mod debug_roundtrip_test {
         }
         cs.flush(&mut outfile).unwrap();
 
-        let enc_cb = &cs.debug_inner().tiles[0].tile_comps[0].resolutions[0].subbands[0].codeblocks[0];
+        let enc_cb =
+            &cs.debug_inner().tiles[0].tile_comps[0].resolutions[0].subbands[0].codeblocks[0];
         let enc_state = enc_cb.enc_state.as_ref().expect("missing encode state");
         assert_eq!(enc_state.pass1_bytes as usize, direct_bytes.len());
         assert_eq!(enc_cb.coded_data, direct_bytes);
@@ -415,7 +416,8 @@ mod debug_roundtrip_test {
         dec.read_headers(&mut infile).unwrap();
         dec.create(&mut infile).unwrap();
 
-        let dec_cb = &dec.debug_inner().tiles[0].tile_comps[0].resolutions[0].subbands[0].codeblocks[0];
+        let dec_cb =
+            &dec.debug_inner().tiles[0].tile_comps[0].resolutions[0].subbands[0].codeblocks[0];
         let dec_state = dec_cb.dec_state.as_ref().expect("missing decode state");
         assert_eq!(dec_state.pass1_len as usize, direct_bytes.len());
         assert_eq!(dec_cb.coded_data, direct_bytes);
@@ -473,11 +475,11 @@ mod debug_roundtrip_test {
         dec.create(&mut infile).unwrap();
 
         let dec_tc = &dec.debug_inner().tiles[0].tile_comps[0];
-        for (res_idx, (enc_res, dec_res)) in enc_coeffs.iter().zip(&dec_tc.resolutions).enumerate() {
+        for (res_idx, (enc_res, dec_res)) in enc_coeffs.iter().zip(&dec_tc.resolutions).enumerate()
+        {
             for (sb_idx, (enc_sb, dec_sb)) in enc_res.iter().zip(&dec_res.subbands).enumerate() {
                 assert_eq!(
-                    enc_sb,
-                    &dec_sb.coeffs,
+                    enc_sb, &dec_sb.coeffs,
                     "subband mismatch at resolution {res_idx}, subband {sb_idx}"
                 );
             }
@@ -564,7 +566,9 @@ mod debug_roundtrip_test {
             .zip(&cpp_tc.resolutions)
             .enumerate()
         {
-            for (sb_idx, (rust_sb, cpp_sb)) in rust_res.subbands.iter().zip(&cpp_res.subbands).enumerate() {
+            for (sb_idx, (rust_sb, cpp_sb)) in
+                rust_res.subbands.iter().zip(&cpp_res.subbands).enumerate()
+            {
                 if rust_sb.coeffs != cpp_sb.coeffs {
                     let first = rust_sb
                         .coeffs
@@ -668,10 +672,11 @@ mod debug_roundtrip_test {
             .zip(&cpp_tc.resolutions)
             .enumerate()
         {
-            for (sb_idx, (rust_sb, cpp_sb)) in rust_res.subbands.iter().zip(&cpp_res.subbands).enumerate() {
+            for (sb_idx, (rust_sb, cpp_sb)) in
+                rust_res.subbands.iter().zip(&cpp_res.subbands).enumerate()
+            {
                 assert_eq!(
-                    rust_sb.coeffs,
-                    cpp_sb.coeffs,
+                    rust_sb.coeffs, cpp_sb.coeffs,
                     "forward DWT mismatch at resolution {res_idx}, subband {sb_idx}"
                 );
             }
@@ -732,20 +737,21 @@ mod debug_roundtrip_test {
                             let nominal_h = 1u32 << cb.log_block_dims.h;
                             let stride = (nominal_w + 7) & !7;
                             let mut decoded = vec![0u32; (stride * nominal_h) as usize];
-                            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                                decode_codeblock32(
-                                    &mut coded,
-                                    &mut decoded,
-                                    enc.missing_msbs,
-                                    enc.num_passes,
-                                    enc.pass1_bytes,
-                                    enc.pass2_bytes,
-                                    cb.width(),
-                                    cb.height(),
-                                    stride,
-                                    false,
-                                )
-                            }));
+                            let result =
+                                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                    decode_codeblock32(
+                                        &mut coded,
+                                        &mut decoded,
+                                        enc.missing_msbs,
+                                        enc.num_passes,
+                                        enc.pass1_bytes,
+                                        enc.pass2_bytes,
+                                        cb.width(),
+                                        cb.height(),
+                                        stride,
+                                        false,
+                                    )
+                                }));
 
                             match result {
                                 Ok(Ok(true)) | Ok(Ok(false)) => {}
@@ -829,20 +835,21 @@ mod debug_roundtrip_test {
                             let stride = (nominal_w + 7) & !7;
                             let mut coded = cb.coded_data.clone();
                             let mut decoded = vec![0u32; (stride * nominal_h) as usize];
-                            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                                decode_codeblock32(
-                                    &mut coded,
-                                    &mut decoded,
-                                    enc.missing_msbs,
-                                    enc.num_passes,
-                                    enc.pass1_bytes,
-                                    enc.pass2_bytes,
-                                    cb.width(),
-                                    cb.height(),
-                                    stride,
-                                    false,
-                                )
-                            }));
+                            let result =
+                                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                    decode_codeblock32(
+                                        &mut coded,
+                                        &mut decoded,
+                                        enc.missing_msbs,
+                                        enc.num_passes,
+                                        enc.pass1_bytes,
+                                        enc.pass2_bytes,
+                                        cb.width(),
+                                        cb.height(),
+                                        stride,
+                                        false,
+                                    )
+                                }));
 
                             match result {
                                 Ok(Ok(true)) | Ok(Ok(false)) => {}
@@ -937,17 +944,11 @@ mod debug_roundtrip_test {
                     .zip(&dec_tc.resolutions)
                     .enumerate()
                 {
-                    for (sb_idx, (enc_sb, dec_sb)) in enc_res
-                        .subbands
-                        .iter()
-                        .zip(&dec_res.subbands)
-                        .enumerate()
+                    for (sb_idx, (enc_sb, dec_sb)) in
+                        enc_res.subbands.iter().zip(&dec_res.subbands).enumerate()
                     {
-                        for (cb_idx, (enc_cb, dec_cb)) in enc_sb
-                            .codeblocks
-                            .iter()
-                            .zip(&dec_sb.codeblocks)
-                            .enumerate()
+                        for (cb_idx, (enc_cb, dec_cb)) in
+                            enc_sb.codeblocks.iter().zip(&dec_sb.codeblocks).enumerate()
                         {
                             let enc_state = enc_cb.enc_state.as_ref();
                             let dec_state = dec_cb.dec_state.as_ref();

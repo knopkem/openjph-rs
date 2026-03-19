@@ -123,6 +123,7 @@ impl CodestreamLocal {
     pub fn is_planar(&self) -> bool {
         self.planar != 0
     }
+    #[allow(dead_code)]
     pub fn is_resilient(&self) -> bool {
         self.resilient
     }
@@ -320,7 +321,7 @@ impl CodestreamLocal {
                 }
                 _ => {
                     // Unknown marker — skip it
-                    if marker >= 0xFF30 && marker <= 0xFF3F {
+                    if (0xFF30..=0xFF3F).contains(&marker) {
                         // Zero-length marker
                         continue;
                     }
@@ -514,9 +515,9 @@ impl CodestreamLocal {
 
             // Composite all tile lines into one full-width line
             let mut result = vec![0i32; total_w];
-            for tx in 0..num_tw {
+            for (tx, tile_line_opt) in tile_lines.iter().enumerate().take(num_tw) {
                 let idx = row_start + tx;
-                if let Some(ref tile_line) = tile_lines[tx] {
+                if let Some(ref tile_line) = tile_line_opt {
                     if idx < self.tiles.len() {
                         let tx0 = self.tiles[idx].tile_comps[comp_num as usize]
                             .comp_rect

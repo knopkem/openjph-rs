@@ -53,7 +53,7 @@ pub const NUM_FRAC_BITS: u32 = 13;
 /// Panics (debug) when `b == 0`.
 #[inline]
 pub const fn div_ceil(a: u32, b: u32) -> u32 {
-    (a + b - 1) / b
+    a.div_ceil(b)
 }
 
 /// Returns the larger of two values (const-evaluable).

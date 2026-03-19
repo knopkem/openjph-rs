@@ -3,6 +3,8 @@
 //! Decodes one codeblock, processing the cleanup, significance-propagation,
 //! and magnitude-refinement passes.
 
+#![allow(clippy::identity_op, clippy::erasing_op)]
+
 use crate::arch::{count_leading_zeros, population_count};
 use crate::types::ojph_max;
 
@@ -578,6 +580,7 @@ impl<'a> FrwdStruct32<'a> {
 /// Returns `Ok(true)` on success, `Ok(false)` for non-fatal decode failures
 /// (malformed data that can be silently skipped).
 #[allow(unused_assignments)]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn decode_codeblock32(
     coded_data: &mut [u8],
     decoded_data: &mut [u32],
@@ -613,14 +616,12 @@ pub(crate) fn decode_codeblock32(
     } else if missing_msbs == 30 {
         ojph_warn!("Not enough precision to decode the cleanup pass.");
         return Ok(false);
-    } else if missing_msbs == 29 {
-        if num_passes > 1 {
-            num_passes = 1;
-            ojph_warn!(
-                "Not enough precision to decode the SgnProp \
-                 nor MagRef passes; both will be skipped."
-            );
-        }
+    } else if missing_msbs == 29 && num_passes > 1 {
+        num_passes = 1;
+        ojph_warn!(
+            "Not enough precision to decode the SgnProp \
+             nor MagRef passes; both will be skipped."
+        );
     }
 
     let p = 30 - missing_msbs;
@@ -806,7 +807,6 @@ pub(crate) fn decode_codeblock32(
 
             y += 2;
         }
-
     }
 
     // ========================================================================

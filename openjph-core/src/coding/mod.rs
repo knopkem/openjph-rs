@@ -9,6 +9,8 @@
 //! - 32-bit and 64-bit block decoders
 //! - SIMD dispatch stubs
 
+#![allow(dead_code)]
+
 pub(crate) mod common;
 pub(crate) mod decoder32;
 pub(crate) mod decoder64;
@@ -419,8 +421,9 @@ mod tests {
             }
         }
 
-        let enc_result = encoder::encode_codeblock32(&samples, missing_msbs, 1, width, height, width)
-            .expect("encode failed");
+        let enc_result =
+            encoder::encode_codeblock32(&samples, missing_msbs, 1, width, height, width)
+                .expect("encode failed");
         let mut coded = enc_result.data.clone();
         coded.resize(coded.len() + 64, 0);
         let dec_h = height.max(2).next_multiple_of(2);
@@ -444,7 +447,11 @@ mod tests {
                 let v = decoded[y * width as usize + x];
                 let mag = ((v & 0x7FFF_FFFF) >> shift) as i32;
                 let got = if (v >> 31) != 0 { -mag } else { mag };
-                assert_eq!(got, expected[y * width as usize + x], "mismatch at ({x}, {y})");
+                assert_eq!(
+                    got,
+                    expected[y * width as usize + x],
+                    "mismatch at ({x}, {y})"
+                );
             }
         }
     }

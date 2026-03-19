@@ -1,5 +1,7 @@
 //! NEON-accelerated codestream sample conversion routines for AArch64.
 
+#![allow(dead_code)]
+
 #[cfg(target_arch = "aarch64")]
 use core::arch::aarch64::*;
 
