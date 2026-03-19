@@ -161,47 +161,6 @@ impl ParamAtk {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{LiftingStep, ParamAtk};
-
-    #[test]
-    fn rev53_step_order_matches_openjph() {
-        let mut atk = ParamAtk::default();
-        atk.init_rev53();
-        assert_eq!(atk.get_num_steps(), 2);
-
-        match atk.get_step(0) {
-            LiftingStep::Reversible(step) => assert_eq!((step.a, step.b, step.e), (1, 2, 2)),
-            _ => panic!("expected reversible step 0"),
-        }
-        match atk.get_step(1) {
-            LiftingStep::Reversible(step) => assert_eq!((step.a, step.b, step.e), (-1, 1, 1)),
-            _ => panic!("expected reversible step 1"),
-        }
-    }
-
-    #[test]
-    fn irv97_step_order_matches_openjph() {
-        let mut atk = ParamAtk::default();
-        atk.init_irv97();
-        assert_eq!(atk.get_num_steps(), 4);
-
-        let mut got = Vec::new();
-        for idx in 0..atk.get_num_steps() {
-            match atk.get_step(idx) {
-                LiftingStep::Irreversible(step) => got.push(step.a),
-                _ => panic!("expected irreversible step"),
-            }
-        }
-
-        let expected = [0.443_506_85, 0.882_911_1, -0.052_980_118, -1.586_134_3];
-        for (actual, expected) in got.into_iter().zip(expected) {
-            assert!((actual - expected).abs() < 1e-7);
-        }
-    }
-}
-
 // =========================================================================
 // Function pointer types — wavelet transforms
 // =========================================================================
@@ -447,4 +406,45 @@ pub fn wavelet_fns() -> &'static WaveletTransformFns {
 #[inline]
 pub fn colour_fns() -> &'static ColourTransformFns {
     init_colour_transform_functions()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LiftingStep, ParamAtk};
+
+    #[test]
+    fn rev53_step_order_matches_openjph() {
+        let mut atk = ParamAtk::default();
+        atk.init_rev53();
+        assert_eq!(atk.get_num_steps(), 2);
+
+        match atk.get_step(0) {
+            LiftingStep::Reversible(step) => assert_eq!((step.a, step.b, step.e), (1, 2, 2)),
+            _ => panic!("expected reversible step 0"),
+        }
+        match atk.get_step(1) {
+            LiftingStep::Reversible(step) => assert_eq!((step.a, step.b, step.e), (-1, 1, 1)),
+            _ => panic!("expected reversible step 1"),
+        }
+    }
+
+    #[test]
+    fn irv97_step_order_matches_openjph() {
+        let mut atk = ParamAtk::default();
+        atk.init_irv97();
+        assert_eq!(atk.get_num_steps(), 4);
+
+        let mut got = Vec::new();
+        for idx in 0..atk.get_num_steps() {
+            match atk.get_step(idx) {
+                LiftingStep::Irreversible(step) => got.push(step.a),
+                _ => panic!("expected irreversible step"),
+            }
+        }
+
+        let expected = [0.443_506_85, 0.882_911_1, -0.052_980_118, -1.586_134_3];
+        for (actual, expected) in got.into_iter().zip(expected) {
+            assert!((actual - expected).abs() < 1e-7);
+        }
+    }
 }

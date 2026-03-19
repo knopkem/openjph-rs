@@ -3,8 +3,6 @@
 //! Compares two byte streams, ignoring COM (comment) marker segments in
 //! the JPEG 2000 codestream header (before the first SOT marker).
 
-use std::io::Read;
-
 /// Result of a file comparison.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompareResult {
@@ -54,7 +52,7 @@ pub fn compare_j2k_bytes(data1: &[u8], data2: &[u8]) -> CompareResult {
         // Check for COM marker (0xFF 0x64) before tile starts
         if !tile_started && old_c1 == 0xFF && c1 == 0x64 {
             // Skip the comment body in both streams
-            if !eat_comment(&data1, &mut i1) || !eat_comment(&data2, &mut i2) {
+            if !eat_comment(data1, &mut i1) || !eat_comment(data2, &mut i2) {
                 return CompareResult::LengthMismatch;
             }
         }
@@ -86,6 +84,7 @@ fn eat_comment(data: &[u8], pos: &mut usize) -> bool {
 /// Compare two files on disk, ignoring COM markers in the JPEG 2000 header.
 ///
 /// Returns the comparison result.
+#[allow(dead_code)]
 pub fn compare_j2k_files(path1: &str, path2: &str) -> std::io::Result<CompareResult> {
     let data1 = std::fs::read(path1)?;
     let data2 = std::fs::read(path2)?;

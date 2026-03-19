@@ -469,7 +469,7 @@ mod tests {
     /// Verify NEON irv_vert_step matches scalar for 9/7 lifting.
     #[test]
     fn neon_irv_vert_step_matches_scalar() {
-        let coefficients = [-1.586_134_3f32, -0.052_980_118, 0.882_911_08, 0.443_506_85];
+        let coefficients = [-1.586_134_3f32, -0.052_980_118, 0.882_911_1, 0.443_506_85];
 
         for &a_val in &coefficients {
             let step = LiftingStep::Irreversible(IrvLiftingStep { a: a_val });

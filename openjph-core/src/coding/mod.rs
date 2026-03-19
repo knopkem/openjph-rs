@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn roundtrip_zeros_4x4() {
-        roundtrip32(&vec![0u32; 16], 4, 4, 0);
+        roundtrip32(&[0u32; 16], 4, 4, 0);
     }
 
     #[test]
@@ -321,7 +321,8 @@ mod tests {
     fn roundtrip_uniform_4x4() {
         // All samples identical, p = 1 (missing_msbs = 29)
         let mag = make_mag32(3, 1); // = 7
-        roundtrip32(&vec![mag; 16], 4, 4, 29);
+        let mag_arr = [mag; 16];
+        roundtrip32(&mag_arr, 4, 4, 29);
     }
 
     // -----------------------------------------------------------------------

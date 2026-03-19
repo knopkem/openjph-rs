@@ -1,6 +1,10 @@
 //! Image I/O traits and format dispatch for the CLI tools.
 //!
 //! Supports PPM/PGM, YUV, DPX (read-only), and RAWL formats.
+//!
+//! Items here are intentionally shared between ojph_compress and ojph_expand;
+//! each binary uses a subset, so some items appear dead in each binary.
+#![allow(dead_code)]
 
 use std::any::Any;
 

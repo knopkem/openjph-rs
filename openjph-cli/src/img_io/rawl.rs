@@ -2,6 +2,7 @@
 //!
 //! Simple sequential I/O of raw sample data. Format parameters (width, height,
 //! components, bit depth, signedness) are specified externally via CLI arguments.
+#![allow(dead_code)]
 
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
@@ -56,7 +57,7 @@ impl RawlReader {
         self.num_components = num_components;
         self.bit_depth = bit_depth;
         self.is_signed = is_signed;
-        self.bytes_per_sample = (bit_depth + 7) / 8;
+        self.bytes_per_sample = bit_depth.div_ceil(8);
 
         let max_samples = width as usize;
         self.temp_buf = vec![0u8; max_samples * self.bytes_per_sample as usize];
@@ -211,7 +212,7 @@ impl RawlWriter {
         self.is_signed = is_signed;
         self.bit_depth = bit_depth;
         self.width = width;
-        self.bytes_per_sample = (bit_depth + 7) / 8;
+        self.bytes_per_sample = bit_depth.div_ceil(8);
 
         if is_signed {
             self.upper_val = (1i64 << (bit_depth - 1)) - 1;
@@ -258,29 +259,29 @@ impl ImageWriter for RawlWriter {
 
         match bps {
             1 => {
-                for i in 0..w {
-                    let val = (data[i] as i64).max(self.lower_val).min(self.upper_val);
+                for (i, &src) in data[..w].iter().enumerate() {
+                    let val = (src as i64).max(self.lower_val).min(self.upper_val);
                     self.temp_buf[i] = val as u8;
                 }
             }
             2 => {
-                for i in 0..w {
-                    let val = (data[i] as i64).max(self.lower_val).min(self.upper_val) as u16;
+                for (i, &src) in data[..w].iter().enumerate() {
+                    let val = (src as i64).max(self.lower_val).min(self.upper_val) as u16;
                     self.temp_buf[i * 2] = (val & 0xFF) as u8;
                     self.temp_buf[i * 2 + 1] = (val >> 8) as u8;
                 }
             }
             3 => {
-                for i in 0..w {
-                    let val = (data[i] as i64).max(self.lower_val).min(self.upper_val) as u32;
+                for (i, &src) in data[..w].iter().enumerate() {
+                    let val = (src as i64).max(self.lower_val).min(self.upper_val) as u32;
                     self.temp_buf[i * 3] = (val & 0xFF) as u8;
                     self.temp_buf[i * 3 + 1] = ((val >> 8) & 0xFF) as u8;
                     self.temp_buf[i * 3 + 2] = ((val >> 16) & 0xFF) as u8;
                 }
             }
             4 => {
-                for i in 0..w {
-                    let val = (data[i] as i64).max(self.lower_val).min(self.upper_val) as u32;
+                for (i, &src) in data[..w].iter().enumerate() {
+                    let val = (src as i64).max(self.lower_val).min(self.upper_val) as u32;
                     let bytes = val.to_le_bytes();
                     self.temp_buf[i * 4..i * 4 + 4].copy_from_slice(&bytes);
                 }

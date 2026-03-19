@@ -71,6 +71,7 @@ fn parse_size_list(s: &str) -> Result<Vec<Size>, String> {
 }
 
 /// Parse a list of `{x,y}` point pairs.
+#[allow(dead_code)]
 fn parse_point_list(s: &str) -> Result<Vec<Point>, String> {
     let mut result = Vec::new();
     let mut depth = 0i32;

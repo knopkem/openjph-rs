@@ -9,6 +9,7 @@
 
 /// Image color subsampling format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum ColorFormat {
     /// No subsampling — all components at full resolution.
     Format444,
@@ -67,6 +68,7 @@ impl ImgInfo {
     }
 
     /// Initialize image info and allocate component buffers.
+    #[allow(dead_code)]
     pub fn init(
         &mut self,
         num_comps: u32,
@@ -106,8 +108,8 @@ impl ImgInfo {
 
         self.comps = Vec::with_capacity(num_comps as usize);
         for i in 0..num_comps as usize {
-            let w = (width as u32 + self.downsampling[i].x - 1) / self.downsampling[i].x;
-            let h = (height as u32 + self.downsampling[i].y - 1) / self.downsampling[i].y;
+            let w = (width as u32).div_ceil(self.downsampling[i].x);
+            let h = (height as u32).div_ceil(self.downsampling[i].y);
             self.comps.push(vec![0i32; (w as usize) * (h as usize)]);
         }
     }
@@ -140,15 +142,17 @@ impl ImgInfo {
     }
 
     /// Component width accounting for downsampling.
+    #[allow(dead_code)]
     pub fn comp_width(&self, comp: u32) -> usize {
         let ds = self.downsampling[comp as usize].x;
-        ((self.width as u32 + ds - 1) / ds) as usize
+        (self.width as u32).div_ceil(ds) as usize
     }
 
     /// Component height accounting for downsampling.
+    #[allow(dead_code)]
     pub fn comp_height(&self, comp: u32) -> usize {
         let ds = self.downsampling[comp as usize].y;
-        ((self.height as u32 + ds - 1) / ds) as usize
+        (self.height as u32).div_ceil(ds) as usize
     }
 }
 
@@ -193,8 +197,8 @@ pub fn find_mse_pae(img1: &ImgInfo, img2: &ImgInfo) -> Vec<MsePaeResult> {
     let mut results = Vec::with_capacity(img1.num_comps as usize);
 
     for c in 0..img1.num_comps as usize {
-        let w = (img1.width as u32 + img1.downsampling[c].x - 1) / img1.downsampling[c].x;
-        let h = (img1.height as u32 + img1.downsampling[c].y - 1) / img1.downsampling[c].y;
+        let w = (img1.width as u32).div_ceil(img1.downsampling[c].x);
+        let h = (img1.height as u32).div_ceil(img1.downsampling[c].y);
         let w = w as usize;
         let h = h as usize;
 
@@ -219,7 +223,7 @@ pub fn find_mse_pae(img1: &ImgInfo, img2: &ImgInfo) -> Vec<MsePaeResult> {
                     let idx = v * w + s;
                     let a = img1.comps[c][idx] as u32;
                     let b = img2.comps[c][idx] as u32;
-                    let err = if a > b { a - b } else { b - a };
+                    let err = a.abs_diff(b);
                     lpae = lpae.max(err);
                     se += (err as f64) * (err as f64);
                 }
@@ -251,8 +255,8 @@ pub fn find_nlt_mse_pae(img1: &ImgInfo, img2: &ImgInfo) -> Vec<MsePaeResult> {
     let mut results = Vec::with_capacity(img1.num_comps as usize);
 
     for c in 0..img1.num_comps as usize {
-        let w = (img1.width as u32 + img1.downsampling[c].x - 1) / img1.downsampling[c].x;
-        let h = (img1.height as u32 + img1.downsampling[c].y - 1) / img1.downsampling[c].y;
+        let w = (img1.width as u32).div_ceil(img1.downsampling[c].x);
+        let h = (img1.height as u32).div_ceil(img1.downsampling[c].y);
         let w = w as usize;
         let h = h as usize;
 
@@ -268,11 +272,7 @@ pub fn find_nlt_mse_pae(img1: &ImgInfo, img2: &ImgInfo) -> Vec<MsePaeResult> {
                     let mut b = img2.comps[c][idx];
                     a = if a >= 0 { a } else { -a - bias };
                     b = if b >= 0 { b } else { -b - bias };
-                    let err = if a > b {
-                        (a - b) as u32
-                    } else {
-                        (b - a) as u32
-                    };
+                    let err = (a as u32).abs_diff(b as u32);
                     lpae = lpae.max(err);
                     se += (err as f64) * (err as f64);
                 }
@@ -283,7 +283,7 @@ pub fn find_nlt_mse_pae(img1: &ImgInfo, img2: &ImgInfo) -> Vec<MsePaeResult> {
                     let idx = v * w + s;
                     let a = img1.comps[c][idx] as u32;
                     let b = img2.comps[c][idx] as u32;
-                    let err = if a > b { a - b } else { b - a };
+                    let err = a.abs_diff(b);
                     lpae = lpae.max(err);
                     se += (err as f64) * (err as f64);
                 }
@@ -302,15 +302,17 @@ pub fn find_nlt_mse_pae(img1: &ImgInfo, img2: &ImgInfo) -> Vec<MsePaeResult> {
 // =========================================================================
 
 /// Check if a filename is a PNM (PGM/PPM) file.
+#[allow(dead_code)]
 pub fn is_pnm(filename: &str) -> bool {
     let lower = filename.to_lowercase();
     lower.ends_with(".pgm") || lower.ends_with(".ppm")
 }
 
 /// Load a PGM (grayscale) or PPM (RGB) image file into `ImgInfo`.
+#[allow(dead_code)]
 pub fn load_ppm(filename: &str) -> std::io::Result<ImgInfo> {
     let data = std::fs::read(filename)?;
-    let mut pos = 0;
+    let mut pos = 2;
 
     fn skip_whitespace_and_comments(data: &[u8], pos: &mut usize) {
         while *pos < data.len() {
@@ -348,7 +350,6 @@ pub fn load_ppm(filename: &str) -> std::io::Result<ImgInfo> {
         ));
     }
     let magic = [data[0], data[1]];
-    pos = 2;
 
     let num_comps = match &magic {
         b"P5" => 1, // PGM binary

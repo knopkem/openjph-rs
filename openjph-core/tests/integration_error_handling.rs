@@ -25,10 +25,7 @@ fn error_no_siz_set() {
     // Missing image extent — should error or produce minimal output
     let result = cs.write_headers(&mut outfile, &[]);
     // It's valid for the codec to either error here or produce a degenerate stream
-    if result.is_ok() {
-        // At minimum, output should contain something
-        assert!(outfile.len() > 0 || true);
-    }
+    let _ = result;
 }
 
 /// Truncated codestream: just a SOC marker (0xFF4F)
@@ -199,6 +196,7 @@ fn edge_2x2_image() {
 
 /// Very narrow image: 1×64
 #[test]
+#[allow(non_snake_case)]
 fn edge_1xN_image() {
     let w = 1u32;
     let h = 64u32;
@@ -237,6 +235,7 @@ fn edge_1xN_image() {
 
 /// Very wide image: 64×1
 #[test]
+#[allow(non_snake_case)]
 fn edge_Nx1_image() {
     let w = 64u32;
     let h = 1u32;

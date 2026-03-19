@@ -410,8 +410,8 @@ mod tests {
     fn neon_rct_backward_matches_scalar() {
         for width in [1, 3, 4, 7, 8, 16, 33, 64] {
             let mut y_data: Vec<i32> = (0..width).map(|i| (i * 3 + 50) as i32).collect();
-            let mut cb_data: Vec<i32> = (0..width).map(|i| (i as i32 * 2 - 30)).collect();
-            let mut cr_data: Vec<i32> = (0..width).map(|i| (-(i as i32) + 20)).collect();
+            let mut cb_data: Vec<i32> = (0..width).map(|i| i as i32 * 2 - 30).collect();
+            let mut cr_data: Vec<i32> = (0..width).map(|i| -(i as i32) + 20).collect();
 
             let y = make_i32_linebuf(&mut y_data);
             let cb = make_i32_linebuf(&mut cb_data);

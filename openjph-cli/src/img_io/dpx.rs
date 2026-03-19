@@ -2,6 +2,7 @@
 //!
 //! Supports 10-bit packed (Method A) and 16-bit samples in both big-endian
 //! and little-endian byte orders. Read-only.
+#![allow(dead_code)]
 
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
@@ -152,17 +153,17 @@ impl ImageReader for DpxReader {
         // Compute buffer sizes
         if bit_depth == 10 && packing != 0 {
             // 10-bit packed Method A: 3 samples per 32-bit word
-            self.words_per_line = (num_components * width + 2) / 3;
+            self.words_per_line = (num_components * width).div_ceil(3);
             self.raw_buf = vec![0u8; self.words_per_line as usize * 4];
         } else if bit_depth == 16 || (bit_depth == 10 && packing == 0) {
             // 16-bit per sample
             let bytes_per_line = num_components * width * 2;
             self.raw_buf = vec![0u8; bytes_per_line as usize];
-            self.words_per_line = (bytes_per_line + 3) / 4;
+            self.words_per_line = bytes_per_line.div_ceil(4);
         } else if bit_depth == 8 {
             let bytes_per_line = num_components * width;
             self.raw_buf = vec![0u8; bytes_per_line as usize];
-            self.words_per_line = (bytes_per_line + 3) / 4;
+            self.words_per_line = bytes_per_line.div_ceil(4);
         } else {
             anyhow::bail!("Unsupported DPX bit depth: {}", bit_depth);
         }

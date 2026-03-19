@@ -4,6 +4,3 @@
 
 pub mod compare_files;
 pub mod mse_pae;
-
-pub use compare_files::*;
-pub use mse_pae::*;

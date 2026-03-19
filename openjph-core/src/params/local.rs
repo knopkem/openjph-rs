@@ -2213,7 +2213,10 @@ impl ParamNlt {
                 return &mut self.children[i];
             }
         }
-        let child = ParamNlt { cnlt: comp_num as u16, ..Default::default() };
+        let child = ParamNlt {
+            cnlt: comp_num as u16,
+            ..Default::default()
+        };
         self.children.push(child);
         self.children.last_mut().unwrap()
     }

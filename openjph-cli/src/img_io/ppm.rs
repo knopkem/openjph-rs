@@ -2,6 +2,7 @@
 //!
 //! Supports P5 (PGM binary, grayscale) and P6 (PPM binary, RGB) formats
 //! with 8-bit and 16-bit samples. 16-bit samples use big-endian byte order.
+#![allow(dead_code)]
 
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
@@ -113,10 +114,7 @@ impl ImageReader for PpmReader {
 
         // Validate extension
         let lower = filename.to_lowercase();
-        if !lower.ends_with(expected_ext)
-            && !(expected_ext == ".ppm" && lower.ends_with(".ppm"))
-            && !(expected_ext == ".pgm" && lower.ends_with(".pgm"))
-        {
+        if !lower.ends_with(expected_ext) {
             eprintln!(
                 "Warning: file extension does not match PPM type (expected {})",
                 expected_ext
@@ -312,10 +310,8 @@ impl ImageWriter for PpmWriter {
         let max_val = ((1i64 << self.bit_depth) - 1) as i32;
 
         // Interleave: place component data into the interleaved buffer
-        for i in 0..w {
-            let mut val = data[i];
-            // Clamp
-            val = val.max(0).min(max_val);
+        for (i, &val) in data[..w].iter().enumerate() {
+            let val = val.max(0).min(max_val);
             self.interleaved_buf[i * nc + comp_num as usize] = val;
         }
 

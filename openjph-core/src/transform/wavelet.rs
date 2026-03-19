@@ -1001,7 +1001,7 @@ mod tests {
 
     /// Helper: create a LineBuf backed by i32 data (with 1 element of
     /// padding before the start for symmetric extension).
-    fn make_i32_buf(data: &mut Vec<i32>) -> LineBuf {
+    fn make_i32_buf(data: &mut [i32]) -> LineBuf {
         LineBuf {
             size: data.len() - 1, // exclude padding element
             pre_size: 1,
@@ -1012,7 +1012,7 @@ mod tests {
     }
 
     /// Helper: create a LineBuf backed by f32 data (with 1 element padding).
-    fn make_f32_buf(data: &mut Vec<f32>) -> LineBuf {
+    fn make_f32_buf(data: &mut [f32]) -> LineBuf {
         LineBuf {
             size: data.len() - 1,
             pre_size: 1,

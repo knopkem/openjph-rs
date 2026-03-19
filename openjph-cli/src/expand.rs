@@ -110,8 +110,8 @@ fn run() -> Result<()> {
         }
         // Verify uniform downsampling
         let ds0 = downsamplings[0];
-        for c in 1..num_comps as usize {
-            if downsamplings[c] != ds0 {
+        for ds in &downsamplings[1..num_comps as usize] {
+            if *ds != ds0 {
                 bail!(".ppm output requires all components to have the same downsampling");
             }
         }

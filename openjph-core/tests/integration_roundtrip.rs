@@ -17,6 +17,7 @@ use common::mse_pae::{find_mse_pae, ImgInfo};
 // Helpers
 // ============================================================================
 
+#[allow(clippy::too_many_arguments)]
 fn encode_multicomp(
     width: u32,
     height: u32,
@@ -131,6 +132,7 @@ fn verify_lossless(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn verify_lossy(
     width: u32,
     height: u32,
@@ -187,7 +189,7 @@ fn gen_gradient_gray(w: u32, h: u32, bit_depth: u32) -> Vec<Vec<i32>> {
     let max_val = (1i32 << bit_depth) - 1;
     let n = (w * h) as usize;
     let mut pix = Vec::with_capacity(n);
-    for y in 0..h {
+    for _y in 0..h {
         for x in 0..w {
             pix.push(((x as i64 * max_val as i64) / w.max(1) as i64) as i32);
         }

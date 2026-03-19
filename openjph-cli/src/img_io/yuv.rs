@@ -3,6 +3,7 @@
 //! Supports 444, 422, 420, and 400 subsampling formats.
 //! Format parameters are typically passed from CLI arguments:
 //! width, height, bit depth, and subsampling format.
+#![allow(dead_code)]
 
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
@@ -26,10 +27,6 @@ pub fn subsampling_from_format(fmt: &str, num_comps: u32) -> anyhow::Result<Vec<
         "400" => Ok(vec![(1, 1)]),
         _ => anyhow::bail!("Unknown YUV subsampling format: '{}'", fmt),
     }
-}
-
-fn div_ceil(a: u32, b: u32) -> u32 {
-    (a + b - 1) / b
 }
 
 // ---------------------------------------------------------------------------
@@ -95,8 +92,8 @@ impl YuvReader {
             } else {
                 (1, 1)
             };
-            self.comp_widths.push(div_ceil(width, dx));
-            self.comp_heights.push(div_ceil(height, dy));
+            self.comp_widths.push(width.div_ceil(dx));
+            self.comp_heights.push(height.div_ceil(dy));
         }
     }
 
@@ -281,14 +278,14 @@ impl ImageWriter for YuvWriter {
         let bps = self.bytes_per_sample as usize;
 
         if bps == 1 {
-            for i in 0..w {
-                let val = data[i].max(0).min(max_val);
+            for (i, &src) in data[..w].iter().enumerate() {
+                let val = src.max(0).min(max_val);
                 self.temp_buf[i] = val as u8;
             }
         } else {
             // 16-bit little-endian
-            for i in 0..w {
-                let val = data[i].max(0).min(max_val) as u16;
+            for (i, &src) in data[..w].iter().enumerate() {
+                let val = src.max(0).min(max_val) as u16;
                 self.temp_buf[i * 2] = (val & 0xFF) as u8;
                 self.temp_buf[i * 2 + 1] = (val >> 8) as u8;
             }

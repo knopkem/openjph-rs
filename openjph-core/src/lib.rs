@@ -141,8 +141,8 @@ mod pipeline_tests {
         let mut outfile = MemOutfile::new();
         cs.write_headers(&mut outfile, &[]).unwrap();
 
-        for y in 0..height as usize {
-            cs.exchange(&image[y], 0).unwrap();
+        for row in &image {
+            cs.exchange(row, 0).unwrap();
         }
         cs.flush(&mut outfile).unwrap();
 
@@ -159,14 +159,14 @@ mod pipeline_tests {
         cs2.read_headers(&mut infile).unwrap();
         cs2.create(&mut infile).unwrap();
 
-        for y in 0..height as usize {
+        for (y, expected_row) in image.iter().enumerate() {
             let line = cs2.pull(0).expect("expected decoded line");
             assert_eq!(
                 line,
-                image[y],
+                *expected_row,
                 "mismatch at row {y}: got {:?}, expected {:?}",
                 &line[..],
-                &image[y][..]
+                &expected_row[..]
             );
         }
 
@@ -196,8 +196,8 @@ mod pipeline_tests {
 
         let mut outfile = MemOutfile::new();
         cs.write_headers(&mut outfile, &[]).unwrap();
-        for y in 0..height as usize {
-            cs.exchange(&image[y], 0).unwrap();
+        for row in &image {
+            cs.exchange(row, 0).unwrap();
         }
         cs.flush(&mut outfile).unwrap();
 
@@ -207,9 +207,9 @@ mod pipeline_tests {
         cs2.read_headers(&mut infile).unwrap();
         cs2.create(&mut infile).unwrap();
 
-        for y in 0..height as usize {
+        for (y, expected_row) in image.iter().enumerate() {
             let line = cs2.pull(0).expect("expected decoded line");
-            assert_eq!(line, image[y], "mismatch at row {y}");
+            assert_eq!(line, *expected_row, "mismatch at row {y}");
         }
     }
 
@@ -235,8 +235,8 @@ mod pipeline_tests {
 
         let mut outfile = MemOutfile::new();
         cs.write_headers(&mut outfile, &[]).unwrap();
-        for y in 0..height as usize {
-            cs.exchange(&image[y], 0).unwrap();
+        for row in &image {
+            cs.exchange(row, 0).unwrap();
         }
         cs.flush(&mut outfile).unwrap();
 
@@ -246,9 +246,9 @@ mod pipeline_tests {
         cs2.read_headers(&mut infile).unwrap();
         cs2.create(&mut infile).unwrap();
 
-        for y in 0..height as usize {
+        for (y, expected_row) in image.iter().enumerate() {
             let line = cs2.pull(0).expect("expected decoded line");
-            assert_eq!(line, image[y], "mismatch at row {y}");
+            assert_eq!(line, *expected_row, "mismatch at row {y}");
         }
     }
 
@@ -297,7 +297,6 @@ mod pipeline_tests {
 
 #[cfg(test)]
 mod debug_roundtrip_test {
-    use super::*;
     use crate::codestream::Codestream;
     use crate::coding::decoder32::decode_codeblock32;
     use crate::coding::encoder::encode_codeblock32;
@@ -687,7 +686,9 @@ mod debug_roundtrip_test {
     fn debug_tiled_d5_encoder_codeblocks_are_decodable() {
         let width = 256u32;
         let height = 256u32;
-        let mut components = vec![Vec::with_capacity((width * height) as usize); 3];
+        let mut components = (0..3)
+            .map(|_| Vec::<i32>::with_capacity((width * height) as usize))
+            .collect::<Vec<_>>();
         for y in 0..height {
             for x in 0..width {
                 components[0].push(((x * 255) / width.max(1)) as i32);
@@ -714,8 +715,8 @@ mod debug_roundtrip_test {
         for y in 0..height as usize {
             let start = y * width as usize;
             let end = start + width as usize;
-            for c in 0..3usize {
-                cs.exchange(&components[c][start..end], c as u32).unwrap();
+            for (c, comp) in components.iter().enumerate() {
+                cs.exchange(&comp[start..end], c as u32).unwrap();
             }
         }
         cs.flush(&mut outfile).unwrap();
@@ -784,7 +785,9 @@ mod debug_roundtrip_test {
     fn debug_rev53_4x1024_encoder_codeblocks_are_decodable() {
         let width = 256u32;
         let height = 256u32;
-        let mut components = vec![Vec::with_capacity((width * height) as usize); 3];
+        let mut components = (0..3)
+            .map(|_| Vec::<i32>::with_capacity((width * height) as usize))
+            .collect::<Vec<_>>();
         for y in 0..height {
             for x in 0..width {
                 components[0].push(((x * 255) / width.max(1)) as i32);
@@ -812,8 +815,8 @@ mod debug_roundtrip_test {
         for y in 0..height as usize {
             let start = y * width as usize;
             let end = start + width as usize;
-            for c in 0..3usize {
-                cs.exchange(&components[c][start..end], c as u32).unwrap();
+            for (c, comp) in components.iter().enumerate() {
+                cs.exchange(&comp[start..end], c as u32).unwrap();
             }
         }
         cs.flush(&mut outfile).unwrap();
@@ -885,7 +888,9 @@ mod debug_roundtrip_test {
     fn debug_rev53_4x1024_packet_preserves_codeblocks() {
         let width = 256u32;
         let height = 256u32;
-        let mut components = vec![Vec::with_capacity((width * height) as usize); 3];
+        let mut components = (0..3)
+            .map(|_| Vec::<i32>::with_capacity((width * height) as usize))
+            .collect::<Vec<_>>();
         for y in 0..height {
             for x in 0..width {
                 components[0].push(((x * 255) / width.max(1)) as i32);
@@ -913,8 +918,8 @@ mod debug_roundtrip_test {
         for y in 0..height as usize {
             let start = y * width as usize;
             let end = start + width as usize;
-            for c in 0..3usize {
-                cs.exchange(&components[c][start..end], c as u32).unwrap();
+            for (c, comp) in components.iter().enumerate() {
+                cs.exchange(&comp[start..end], c as u32).unwrap();
             }
         }
         cs.flush(&mut outfile).unwrap();
