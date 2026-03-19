@@ -1,0 +1,1 @@
+//! SIMD-accelerated coding routines.

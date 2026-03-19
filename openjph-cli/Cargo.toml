@@ -1,0 +1,20 @@
+[package]
+name = "openjph-cli"
+description = "HTJ2K (JPEG 2000 Part 15) command-line compress/expand tools"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+openjph-core = { path = "../openjph-core" }
+anyhow = { workspace = true }
+clap = { workspace = true }
+
+[[bin]]
+name = "ojph_compress"
+path = "src/compress.rs"
+
+[[bin]]
+name = "ojph_expand"
+path = "src/expand.rs"
