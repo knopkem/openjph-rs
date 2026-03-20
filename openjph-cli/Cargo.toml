@@ -7,7 +7,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-openjph-core = { path = "../openjph-core" }
+openjph-core = { path = "../openjph-core", version = "0.1.0" }
 anyhow = { workspace = true }
 clap = { workspace = true }
 
