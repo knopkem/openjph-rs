@@ -17,23 +17,23 @@ use crate::transform::LiftingStep;
 macro_rules! srai_dyn {
     ($fn:ident, $val:expr, $e:expr) => {
         match $e {
-            0  => $fn($val, 0),
-            1  => $fn($val, 1),
-            2  => $fn($val, 2),
-            3  => $fn($val, 3),
-            4  => $fn($val, 4),
-            5  => $fn($val, 5),
-            6  => $fn($val, 6),
-            7  => $fn($val, 7),
-            8  => $fn($val, 8),
-            9  => $fn($val, 9),
+            0 => $fn($val, 0),
+            1 => $fn($val, 1),
+            2 => $fn($val, 2),
+            3 => $fn($val, 3),
+            4 => $fn($val, 4),
+            5 => $fn($val, 5),
+            6 => $fn($val, 6),
+            7 => $fn($val, 7),
+            8 => $fn($val, 8),
+            9 => $fn($val, 9),
             10 => $fn($val, 10),
             11 => $fn($val, 11),
             12 => $fn($val, 12),
             13 => $fn($val, 13),
             14 => $fn($val, 14),
             15 => $fn($val, 15),
-            _  => unreachable!("Eatk > 15 is not supported in the SIMD path"),
+            _ => unreachable!("Eatk > 15 is not supported in the SIMD path"),
         }
     };
 }
