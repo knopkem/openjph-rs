@@ -9,6 +9,35 @@ use core::arch::x86_64::*;
 use crate::mem::{LineBuf, LineBufData, LFT_32BIT};
 use crate::transform::LiftingStep;
 
+// `_mm_srai_epi32` and `_mm256_srai_epi32` have `#[rustc_legacy_const_generics]`
+// on the shift argument, so it must be a compile-time constant.  This macro
+// dispatches a runtime `$e` (Eatk ≤ 15 covers all JPEG 2000 lifting steps)
+// to the correct constant arm so the compiler is satisfied.
+#[cfg(target_arch = "x86_64")]
+macro_rules! srai_dyn {
+    ($fn:ident, $val:expr, $e:expr) => {
+        match $e {
+            0  => $fn($val, 0),
+            1  => $fn($val, 1),
+            2  => $fn($val, 2),
+            3  => $fn($val, 3),
+            4  => $fn($val, 4),
+            5  => $fn($val, 5),
+            6  => $fn($val, 6),
+            7  => $fn($val, 7),
+            8  => $fn($val, 8),
+            9  => $fn($val, 9),
+            10 => $fn($val, 10),
+            11 => $fn($val, 11),
+            12 => $fn($val, 12),
+            13 => $fn($val, 13),
+            14 => $fn($val, 14),
+            15 => $fn($val, 15),
+            _  => unreachable!("Eatk > 15 is not supported in the SIMD path"),
+        }
+    };
+}
+
 // =========================================================================
 // Pointer helpers
 // =========================================================================
@@ -107,7 +136,7 @@ unsafe fn sse2_rev_vert_step32(
                 let s1 = _mm_loadu_si128(src1 as *const __m128i);
                 let s2 = _mm_loadu_si128(src2 as *const __m128i);
                 let sum = _mm_add_epi32(_mm_add_epi32(vb, s1), s2);
-                let shifted = _mm_srai_epi32(sum, e);
+                let shifted = srai_dyn!(_mm_srai_epi32, sum, e);
                 _mm_storeu_si128(dst as *mut __m128i, _mm_sub_epi32(d, shifted));
                 dst = dst.add(4);
                 src1 = src1.add(4);
@@ -119,7 +148,7 @@ unsafe fn sse2_rev_vert_step32(
                 let s1 = _mm_loadu_si128(src1 as *const __m128i);
                 let s2 = _mm_loadu_si128(src2 as *const __m128i);
                 let sum = _mm_add_epi32(_mm_add_epi32(vb, s1), s2);
-                let shifted = _mm_srai_epi32(sum, e);
+                let shifted = srai_dyn!(_mm_srai_epi32, sum, e);
                 _mm_storeu_si128(dst as *mut __m128i, _mm_add_epi32(d, shifted));
                 dst = dst.add(4);
                 src1 = src1.add(4);
@@ -233,7 +262,7 @@ unsafe fn avx2_rev_vert_step32(
                 let s1 = _mm256_loadu_si256(src1 as *const __m256i);
                 let s2 = _mm256_loadu_si256(src2 as *const __m256i);
                 let sum = _mm256_add_epi32(_mm256_add_epi32(vb, s1), s2);
-                let shifted = _mm256_srai_epi32(sum, e);
+                let shifted = srai_dyn!(_mm256_srai_epi32, sum, e);
                 _mm256_storeu_si256(dst as *mut __m256i, _mm256_sub_epi32(d, shifted));
                 dst = dst.add(8);
                 src1 = src1.add(8);
@@ -245,7 +274,7 @@ unsafe fn avx2_rev_vert_step32(
                 let s1 = _mm256_loadu_si256(src1 as *const __m256i);
                 let s2 = _mm256_loadu_si256(src2 as *const __m256i);
                 let sum = _mm256_add_epi32(_mm256_add_epi32(vb, s1), s2);
-                let shifted = _mm256_srai_epi32(sum, e);
+                let shifted = srai_dyn!(_mm256_srai_epi32, sum, e);
                 _mm256_storeu_si256(dst as *mut __m256i, _mm256_add_epi32(d, shifted));
                 dst = dst.add(8);
                 src1 = src1.add(8);

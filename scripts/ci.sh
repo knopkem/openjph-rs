@@ -56,6 +56,20 @@ if ! cargo build --all; then
 fi
 ok "build"
 
+# ── 3b. Cross-check x86_64 (catches SIMD errors on ARM / non-x86 hosts) ──────
+# Install with: rustup target add x86_64-unknown-linux-gnu
+X86_TARGET="x86_64-unknown-linux-gnu"
+if rustup target list --installed 2>/dev/null | grep -q "$X86_TARGET"; then
+  step "cargo check --target $X86_TARGET (x86_64 SIMD gate)"
+  if ! cargo check --all --target "$X86_TARGET" 2>&1; then
+    fail "x86_64 cross-check failed."
+  fi
+  ok "x86_64 cross-check"
+else
+  warn "x86_64-unknown-linux-gnu not installed — skipping x86 SIMD cross-check"
+  warn "Run: rustup target add x86_64-unknown-linux-gnu"
+fi
+
 # ── 4. Tests ──────────────────────────────────────────────────────────────────
 if [[ $SKIP_TEST -eq 0 ]]; then
   step "cargo test --all"
