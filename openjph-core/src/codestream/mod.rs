@@ -29,7 +29,6 @@ pub(crate) mod codeblock_fun;
 pub(crate) mod local;
 pub(crate) mod precinct;
 pub(crate) mod resolution;
-pub(crate) mod simd;
 pub(crate) mod subband;
 pub(crate) mod tile;
 pub(crate) mod tile_comp;
