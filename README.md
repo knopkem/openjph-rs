@@ -107,9 +107,9 @@ Options:
 - `-o <file>` — output codestream (.j2c)
 - `--num_decomps <n>` — DWT decomposition levels (default: 5)
 - `--block_size "{w,h}"` — code block dimensions (default: {64,64})
-- `--reversible <bool>` — lossless mode (default: true)
+- `--reversible <bool>` — lossless mode (default: false)
 - `--qstep <f>` — quantization step (lossy mode)
-- `--colour_trans <bool>` — enable color transform
+- `--colour_trans <bool>` — enable color transform (default: false)
 - `--profile <name>` — IMF or BROADCAST
 - `--precincts "{w,h},{w,h},..."` — precinct sizes per level
 - `--prog_order <order>` — LRCP, RLCP, RPCL, PCRL, or CPRL
@@ -130,7 +130,7 @@ Options:
 - `-i <file>` — input codestream (.j2c, .jph)
 - `-o <file>` — output image (PPM, PGM, YUV, RAWL)
 - `--skip_res <n>` — skip resolution levels (default: 0)
-- `--resilient` — enable error-tolerant decoding
+- `--resilient <bool>` — enable error-tolerant decoding (default: false)
 
 ## Architecture
 
