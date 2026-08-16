@@ -18,6 +18,13 @@ use img_io::ImageReader;
 // CLI argument parsing
 // ---------------------------------------------------------------------------
 
+// Wrapper for a list of `{w,h}` size pairs.
+// Work-around Clap's special treatment of Vec<T> arguments.
+#[derive(Debug, Clone)]
+struct SizeVec {
+    v: Vec<Size>,
+}
+
 /// Parse a `{w,h}` size pair.
 fn parse_size(s: &str) -> Result<Size, String> {
     let s = s.trim().trim_start_matches('{').trim_end_matches('}');
@@ -43,7 +50,7 @@ fn parse_point(s: &str) -> Result<Point, String> {
 }
 
 /// Parse a list of `{w,h}` size pairs separated by commas.
-fn parse_size_list(s: &str) -> Result<Vec<Size>, String> {
+fn parse_size_list(s: &str) -> Result<SizeVec, String> {
     let mut result = Vec::new();
     let mut depth = 0i32;
     let mut start = 0;
@@ -67,7 +74,7 @@ fn parse_size_list(s: &str) -> Result<Vec<Size>, String> {
     if result.is_empty() {
         return Err(format!("Expected {{w,h}} list, got '{}'", s));
     }
-    Ok(result)
+    Ok(SizeVec { v: result })
 }
 
 /// Parse a list of `{x,y}` point pairs.
@@ -124,7 +131,7 @@ struct Args {
 
     /// Precinct sizes {w,h},{w,h},...
     #[arg(long = "precincts", value_parser = parse_size_list)]
-    precincts: Option<Vec<Size>>,
+    precincts: Option<SizeVec>,
 
     /// Progression order: LRCP, RLCP, RPCL, PCRL, CPRL
     #[arg(long = "prog_order", default_value = "RPCL")]
@@ -284,7 +291,7 @@ fn run() -> Result<()> {
         cod.set_reversible(args.reversible);
 
         if let Some(ref precincts) = args.precincts {
-            cod.set_precinct_size(precincts.len() as i32, precincts);
+            cod.set_precinct_size(precincts.v.len() as i32, precincts.v.as_slice());
         }
 
         cod.set_progression_order(&args.prog_order).map_err(|e| {
