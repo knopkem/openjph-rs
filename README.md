@@ -107,7 +107,7 @@ Options:
 - `-o <file>` — output codestream (.j2c)
 - `--num_decomps <n>` — DWT decomposition levels (default: 5)
 - `--block_size "{w,h}"` — code block dimensions (default: {64,64})
-- `--reversible <bool>` — lossless mode (default: true)
+- `--reversible <bool>` — lossless mode (default: false)
 - `--qstep <f>` — quantization step (lossy mode)
 - `--colour_trans <bool>` — enable color transform (default: false)
 - `--profile <name>` — IMF or BROADCAST
