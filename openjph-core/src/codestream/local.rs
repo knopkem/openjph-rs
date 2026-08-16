@@ -196,6 +196,17 @@ impl CodestreamLocal {
         file: &mut dyn OutfileBase,
         comments: &[CommentExchange],
     ) -> Result<()> {
+        // set the tile size if it was not set by the user
+        {
+            let tile_size = self.siz.get_tile_size();
+            if tile_size.w == 0 && tile_size.h == 0 {
+                let img_offset = self.siz.get_image_offset();
+                let img_extent = self.siz.get_image_extent();
+                let t = Size::new(img_extent.x + img_offset.x, img_extent.y + img_offset.y);
+                self.siz.set_tile_size(t);
+            }
+        }
+
         // Validate parameters
         self.siz.check_validity()?;
         self.cod.check_validity(&self.siz)?;
