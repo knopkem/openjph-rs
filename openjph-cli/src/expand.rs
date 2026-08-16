@@ -165,27 +165,32 @@ fn run() -> Result<()> {
         "ojph_expand: configured {}x{} ({} components) -> {}",
         recon_widths[0], recon_heights[0], num_comps, args.output,
     );
-    eprintln!("Note: actual HTJ2K decoding will be completed when codestream.pull() is wired.");
 
-    // TODO: Decompression loop
-    // codestream.create()?;
-    // if is_planar {
-    //     for c in 0..num_comps {
-    //         let height = siz.get_recon_height(c);
-    //         for _ in 0..height {
-    //             let (comp_num, line) = codestream.pull()?;
-    //             writer.write_line(comp_num, line)?;
-    //         }
-    //     }
-    // } else {
-    //     let height = siz.get_recon_height(0);
-    //     for _ in 0..height {
-    //         for c in 0..num_comps {
-    //             let (comp_num, line) = codestream.pull()?;
-    //             writer.write_line(comp_num, line)?;
-    //         }
-    //     }
-    // }
+    // Decompression loop
+    codestream
+        .create(&mut infile)
+        .or_else(|e| anyhow::bail!("Failed to create codestream for decompression: {:?}", e))?;
+    if is_planar {
+        for c in 0..num_comps {
+            let height = codestream.access_siz().get_recon_height(c);
+            for _ in 0..height {
+                let line = codestream
+                    .pull(c)
+                    .ok_or_else(|| anyhow::anyhow!("Failed to pull line for component {}", c))?;
+                writer.write_line(c, line.as_slice())?;
+            }
+        }
+    } else {
+        let height = codestream.access_siz().get_recon_height(0);
+        for _ in 0..height {
+            for c in 0..num_comps {
+                let line = codestream
+                    .pull(c)
+                    .ok_or_else(|| anyhow::anyhow!("Failed to pull line for component {}", c))?;
+                writer.write_line(c, line.as_slice())?;
+            }
+        }
+    }
 
     writer.close()?;
 
