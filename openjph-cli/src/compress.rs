@@ -339,31 +339,30 @@ fn run() -> Result<()> {
         .map_err(|e| anyhow::anyhow!("Failed to write codestream headers: {:?}", e))?;
 
     // --- Compression loop ---
-    // NOTE: The actual exchange/push API on Codestream is not yet fully wired.
-    // For now, we read all image data to validate I/O works, and log progress.
-    // The real compression loop will use codestream.exchange() once available.
-
     if is_planar {
         // Planar: read each component fully, one row at a time
         for c in 0..num_comps {
             let (_, dy) = reader.get_downsampling(c);
             let comp_height = openjph_core::types::div_ceil(height, dy);
             for _row in 0..comp_height {
-                let _line = reader.read_line(c)?;
-                // TODO: codestream.exchange(line, next_comp) once available
+                let line = reader.read_line(c)?;
+                codestream.exchange(line, c)?;
             }
         }
     } else {
         // Interleaved: read line-by-line, component-by-component
         for _row in 0..height {
             for c in 0..num_comps {
-                let _line = reader.read_line(c)?;
-                // TODO: codestream.exchange(line, next_comp) once available
+                let line = reader.read_line(c)?;
+                codestream.exchange(line, c)?;
             }
         }
     }
 
-    // TODO: codestream.flush() and codestream.close() once available
+    codestream
+        .flush(&mut outfile)
+        .map_err(|e| anyhow::anyhow!("Failed to flush codestream: {:?}", e))?;
+
     reader.close();
 
     eprintln!(
@@ -374,7 +373,6 @@ fn run() -> Result<()> {
         reader.get_bit_depth(0),
         args.output,
     );
-    eprintln!("Note: actual HTJ2K encoding will be completed when codestream.exchange() is wired.");
 
     Ok(())
 }
