@@ -36,7 +36,7 @@ struct Args {
     skip_res: u32,
 
     /// Enable error resilience
-    #[arg(long = "resilient", default_value_t = false)]
+    #[arg(long = "resilient", action = clap::ArgAction::Set, default_value_t = false)]
     resilient: bool,
 }
 

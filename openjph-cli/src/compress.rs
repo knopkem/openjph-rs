@@ -135,7 +135,7 @@ struct Args {
     colour_trans: Option<bool>,
 
     /// Reversible (lossless) coding
-    #[arg(long = "reversible", default_value_t = false)]
+    #[arg(long = "reversible", action = clap::ArgAction::Set, default_value_t = false)]
     reversible: bool,
 
     /// Quantization step for lossy compression
@@ -163,7 +163,7 @@ struct Args {
     downsamp: Option<String>,
 
     /// Add TLM marker
-    #[arg(long = "tlm_marker", default_value_t = false)]
+    #[arg(long = "tlm_marker", action = clap::ArgAction::Set, default_value_t = false)]
     tlm_marker: bool,
 
     /// Tile part divisions: R (resolutions), C (components), RC (both)
