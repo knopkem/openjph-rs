@@ -63,31 +63,29 @@ impl BitBufferWrite {
         }
     }
 
-    /// Flush all remaining bits, padding with zeros. Returns whether
-    /// a zero byte was appended after a trailing 0xFF.
+    /// Flush all remaining bits, padding the last byte with zeros. Returns
+    /// whether a zero byte was appended after a trailing 0xFF.
+    ///
+    /// Emits the fewest bytes that hold the written bits, as OpenJPH's
+    /// `bb_terminate` does: a decoder finds the end of a packet header by
+    /// where its bits end, so any extra padding byte would be read as the
+    /// first byte of the packet body.
     pub fn finalize(&mut self) -> bool {
-        let mut added_stuffing_zero = false;
-        while self.bits_used > 0 || self.unstuff {
-            if self.bits_used == 0 {
-                // unstuff is true: emit a zero byte after 0xFF
-                self.data.push(0);
-                self.unstuff = false;
-                added_stuffing_zero = true;
-            } else {
-                // Pad remaining bits to the next byte boundary
-                let byte_bits = if self.unstuff { 7u32 } else { 8u32 };
-                if self.bits_used < byte_bits {
-                    self.bits_used = byte_bits;
-                } else {
-                    let rem = self.bits_used % byte_bits;
-                    if rem != 0 {
-                        self.bits_used += byte_bits - rem;
-                    }
-                }
-                self.flush_bytes();
-            }
+        // Emit every complete byte (8 bits, or 7 after a 0xFF).
+        self.flush_bytes();
+        if self.bits_used > 0 {
+            // Fewer bits than a byte remain: zero-pad them to one byte (the
+            // bits of `buf` past `bits_used` are already zero).
+            self.bits_used = if self.unstuff { 7 } else { 8 };
+            self.flush_bytes();
         }
-        added_stuffing_zero
+        if self.unstuff {
+            // A trailing 0xFF is followed by a zero byte.
+            self.data.push(0);
+            self.unstuff = false;
+            return true;
+        }
+        false
     }
 
     /// Get the written data.
@@ -206,6 +204,28 @@ mod tests {
         assert_eq!(data[1], 0x00);
         // finalize returns true or the trailing zero is present
         let _ = was_ff;
+    }
+
+    #[test]
+    fn finalize_emits_no_extra_byte_after_stuffing() {
+        // 0xFF, then 9 bits: the byte after 0xFF holds 7 of them, the last
+        // byte the other 2. Three bytes; a fourth would be read as the
+        // packet body by a decoder.
+        let mut writer = BitBufferWrite::new();
+        writer.write(0xFF, 8);
+        writer.write(0x1FF, 9);
+        assert!(!writer.finalize());
+        assert_eq!(writer.get_data(), &[0xFF, 0x7F, 0xC0]);
+    }
+
+    #[test]
+    fn finalize_after_stuffing_fills_exactly_one_byte() {
+        // From issue #2: 0xFF followed by 7 bits is exactly two bytes.
+        let mut writer = BitBufferWrite::new();
+        writer.write(0xFF, 8);
+        writer.write(0x7F, 7);
+        assert!(!writer.finalize());
+        assert_eq!(writer.get_data(), &[0xFF, 0x7F]);
     }
 
     #[test]
